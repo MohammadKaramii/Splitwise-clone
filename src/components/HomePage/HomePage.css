@@ -1,0 +1,164 @@
+.text-green {
+  color: #1cc29f;
+}
+.text-purple {
+  color: #8656cd;
+}
+.text-red {
+  color: #a6002f;
+}
+.text-gray {
+  color: #84878a;
+}
+
+.heading {
+  font-weight: 800;
+}
+
+.logo {
+  display: flex;
+}
+
+.logo p {
+  font-size: 25px;
+  font-weight: 500;
+  margin-top: 15px;
+  padding: 5px;
+}
+
+.home-info li {
+  list-style: none;
+}
+
+.Home-pg-icons {
+  display: flex;
+  padding: 0;
+  gap: 2rem;
+}
+
+.description {
+  font-size: 1.4rem;
+  text-wrap: balance;
+}
+.background {
+  background: url(https://assets.splitwise.com/assets/core/facets.png);
+  background-size: 100%;
+  background-repeat: repeat;
+}
+.home-row1 {
+  padding: 20px;
+  gap: 10rem;
+}
+.home-signup-btn button {
+  background-color: #1cc29f;
+  color: white;
+}
+button:hover {
+  transform: scale(1.02);
+}
+
+.info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.large-palne i {
+  padding: 10px;
+}
+.large-palne {
+  align-self: center;
+  font-size: 350px;
+}
+.cards-container .row {
+  --bs-gutter-x: 0rem;
+}
+.card {
+  --bs-card-border-radius: none;
+}
+.box {
+  color: white;
+}
+.box strong {
+  font-size: 1.5rem;
+}
+.box p,
+.para {
+  font-size: 1.1rem;
+  padding: 0 10rem;
+}
+.box-bg {
+  background: url("https://assets.splitwise.com/assets/core/facets.png");
+  background-size: 100%;
+  background-repeat: repeat;
+}
+.fill-green {
+  background-color: #1cc29f;
+}
+.fill-orange {
+  background-color: #ed7041;
+}
+.fill-grey {
+  background-color: #373b3f;
+}
+
+.fill-purple {
+  background-color: #8656cd;
+}
+
+.bottom-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.bottom-box button {
+  outline: none;
+  border: none;
+  background: inherit;
+  color: white;
+  padding: 0.3rem 0.6rem;
+}
+.bottom-box .btn {
+  box-shadow: 0 2px 0 0 rgb(55 59 63 / 50%);
+  border: 1px solid white;
+}
+
+@media (max-width: 1250px) {
+  .large-palne i {
+    font-size: 15rem;
+  }
+}
+@media (max-width: 720px) {
+  .large-palne i {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 900px) {
+  .home-info {
+    margin: 0;
+    text-align: center;
+    padding: 0;
+  }
+
+  .Home-pg-icons {
+    justify-content: center;
+  }
+
+  .Home-pg-icons i {
+    font-size: 2rem;
+  }
+  .box p,
+  .para {
+    padding: 0 0;
+  }
+  .bottom-box {
+    flex-direction: column;
+  }
+}
+@media (max-width: 410px) {
+  .box img,
+  .bottom-box img {
+    width: 16rem;
+  }
+}
