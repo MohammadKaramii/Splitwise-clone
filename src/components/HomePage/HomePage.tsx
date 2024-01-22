@@ -90,7 +90,7 @@ const HomePage = () => {
           </div>
           <div className="large-palne d-none d-lg-block">
             {icons.map((item, index) => (
-              <i className=" d-none d-lg-block">
+              <i className=" d-none d-lg-block" key={index}>
                 <FontAwesomeIcon
                   icon={item.icon}
                   color={item.colors[0]}
