@@ -8,6 +8,7 @@ import image4 from "../../assets/images/image4.png";
 import image5 from "../../assets/images/image5.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "../../assets/icons";
+import Header from "../Header";
 
 const HomePage = () => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -22,31 +23,7 @@ const HomePage = () => {
 
   return (
     <>
-      <header className="d-flex justify-content-between p-1 px-5 navbar-user align-items-center">
-        <div className="logo">
-          <img
-            src="https://assets.splitwise.com/assets/core/logo-square-65a6124237868b1d2ce2f5db2ab0b7c777e2348b797626816400534116ae22d7.svg"
-            className="w-25"
-          />
-          <p>Splitwise </p>
-        </div>
-        <div className="d-flex">
-          <button
-            type="button"
-            className="btn btn-light btn-primary-light mx-2"
-          >
-            Log in
-          </button>
-          <Link to="/signup" className="home-signup-btn">
-            <button
-              type="button"
-              className="btn btn-success btn-primary-dark mx-2"
-            >
-              Sign up
-            </button>
-          </Link>
-        </div>
-      </header>
+      <Header />
       <section className="home-row1 background w-100">
         <div className=" info text-start">
           <div className="home-info">
