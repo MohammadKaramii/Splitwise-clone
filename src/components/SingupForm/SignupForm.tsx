@@ -8,14 +8,16 @@ import SuccessLoginMessage from "../SuccessMessage";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import { useSessionContext } from "@supabase/auth-helpers-react";
-
+import ReCAPTCHA from "react-google-recaptcha";
 interface Errors {
   name?: string;
   email?: string;
   password?: string;
+  recaptcha?: string;
 }
 
 const SignupForm = () => {
+  const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.userData.user);
   const { session } = useSessionContext();
@@ -26,6 +28,13 @@ const SignupForm = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
+  const [showCurrency, setShowCurrency] = useState(false);
+  const currencyOptions = [
+    { value: "EUR", label: "EUR (€)" },
+    { value: "IRR", label: "IRR (ريال)" },
+    { value: "USD", label: "USD ($)" },
+  ];
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -42,34 +51,44 @@ const SignupForm = () => {
         errors.password = "Password is too short (minimum is 8 characters)";
       }
 
-      console.log(errors);
+      if (!isRecaptchaVerified) {
+        errors.recaptcha = "Please verify that you are not a robot.";
+      }
 
       if (Object.keys(errors).length === 0) {
         try {
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+              data: {
+                name: name,
+              },
+            },
           });
+
           if (error) {
             throw new Error("Sign up failed. Please try again.");
           } else if (data) {
             dispatch(
               setSignInUserData({
-                name: name,
+                name: data.user?.user_metadata.name,
                 email: email,
                 isSignIn: true,
               })
             );
           }
         } catch (error) {
-          setIfFilled(true);
           console.error("Signup error:", error);
+          setIsErrors(true);
+          setIfFilled(true);
+          return;
         }
-      } else {
-        setErrors(errors);
-        setIsErrors(true);
-        setIfFilled(true);
       }
+
+      setErrors(errors);
+      setIsErrors(true);
+      setIfFilled(true);
     }
   };
 
@@ -87,7 +106,15 @@ const SignupForm = () => {
       dispatch(setSignInUserData(user));
     }
   };
-  console.log(user);
+
+  const handleRecaptchaChange = (value: string | null) => {
+    setIsRecaptchaVerified(!!value);
+  };
+
+  const handleCurrencyClick = () => {
+    setShowCurrency(true);
+  };
+
   return (
     <>
       {user.isSignIn ? (
@@ -135,6 +162,7 @@ const SignupForm = () => {
                         {errors.password && <li>{errors.password}</li>}
                         {/* {errors.password1 && <li>{errors.password1}</li>} */}
                         {errors.email && <li>{errors.email}</li>}
+                        {errors.recaptcha && <li>{errors.recaptcha}</li>}
                       </ul>
                     </div>
                   </div>
@@ -187,6 +215,34 @@ const SignupForm = () => {
                           }}
                         />
                       </div>
+                      {showCurrency && (
+                        <div id="currency">
+                          And here’s the <strong>currency</strong> that I use:
+                          <br />
+                          <select
+                            name="user[default_currency]"
+                            id="user_default_currency"
+                            className="py-2 px-5 my-3 rounded border-success select-currency"
+                          >
+                            {currencyOptions.map((option) => (
+                              <option
+                                key={option.value}
+                                value={option.value}
+                                selected={option.value === "USD"}
+                                className="option-currency"
+                              >
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="mb-3 recaptcha-signin">
+                        <ReCAPTCHA
+                          sitekey={siteKey}
+                          onChange={handleRecaptchaChange}
+                        />
+                      </div>
                     </>
                   )}
 
@@ -220,7 +276,9 @@ const SignupForm = () => {
                     {isActive && (
                       <div>
                         Don't use USD for currency?{" "}
-                        <Link to="/signup">Click here</Link>
+                        <a href="#" onClick={handleCurrencyClick}>
+                          Click here
+                        </a>
                       </div>
                     )}
                   </div>

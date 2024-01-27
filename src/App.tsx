@@ -5,6 +5,7 @@ import SignupForm from "./components/SingupForm/SignupForm";
 import LoginForm from "./components/LoginForm/LoginForm";
 import ResetPassword from "./components/ResetPassword/ResetPassword";
 import UpdatePassword from "./components/UpdatePassword/UpdatePassword";
+import MainPage from "./components/MainPage/MainPage";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             path="/password_reset/update_password"
             element={<UpdatePassword />}
           />
+          <Route path="/mainpage" element={<MainPage />} />
         </Routes>
       </Router>
     </>

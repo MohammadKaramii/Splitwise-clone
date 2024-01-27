@@ -85,7 +85,7 @@ const ResetPasswordForm = () => {
                   </div>
                 </div>
 
-                <div className="py-3">
+                <div className="py-3 recaptcha-reset">
                   <ReCAPTCHA
                     sitekey={siteKey}
                     onChange={handleRecaptchaChange}

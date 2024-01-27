@@ -76,9 +76,9 @@
 }
 
 @media only screen and (max-width: 480px) {
-  iframe {
-    position: relative !important;
+  .recaptcha-login iframe {
+    position: relative ;
 
-    left: -48px !important;
+    left: -48px ;
   }
 }

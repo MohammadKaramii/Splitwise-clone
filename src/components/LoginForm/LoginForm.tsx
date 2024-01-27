@@ -57,6 +57,7 @@ const LoginForm = () => {
       } else if (data) {
         dispatch(
           setSignInUserData({
+            name: data.user.user_metadata.name,
             email: email,
             isSignIn: true,
           })
@@ -109,7 +110,7 @@ const LoginForm = () => {
                             required={true}
                           />
                         </div>
-                        <div className="mb-3 ">
+                        <div className="mb-3 recaptcha-login">
                           <ReCAPTCHA
                             sitekey={siteKey}
                             onChange={handleRecaptchaChange}
