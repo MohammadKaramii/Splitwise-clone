@@ -4,11 +4,16 @@ import validator from "validator";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { setSignInUserData } from "../../redux/reducers/userDataSlice";
-import SuccessLoginMessage from "./SuccessMessage";
+import SuccessLoginMessage from "../SuccessMessage";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 
+interface Errors {
+  name?: string;
+  email?: string;
+  password?: string;
+}
 
 const SignupForm = () => {
   const dispatch = useDispatch();
@@ -16,12 +21,7 @@ const SignupForm = () => {
   const { session } = useSessionContext();
   const [ifFilled, setIfFilled] = useState(false);
   const [isErrors, setIsErrors] = useState(false);
-  const [errors, setErrors] = useState({
-    name: "",
-    email: "",
-    password: "",
-    password1: "",
-  });
+  const [errors, setErrors] = useState<Errors>({});
   const [isActive, setIsActive] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,20 +33,17 @@ const SignupForm = () => {
       if (name === "" || name.trim() === "") {
         errors.name = "First name can't be blank";
       }
-  
+
       if (!validator.isEmail(email)) {
         errors.email = "Please enter a valid email address.";
       }
-  
+
       if (password.length < 8) {
         errors.password = "Password is too short (minimum is 8 characters)";
       }
-  
-      if (!validator.isStrongPassword(password)) {
-        errors.password1 =
-          "Password is too common (e.g. '12345','password',etc) - please choose something more complex or unique";
-      }
-  
+
+      console.log(errors);
+
       if (Object.keys(errors).length === 0) {
         try {
           const { data, error } = await supabase.auth.signUp({
@@ -56,13 +53,10 @@ const SignupForm = () => {
           if (error) {
             throw new Error("Sign up failed. Please try again.");
           } else if (data) {
-            await supabase.auth.updateUser({
-              data: { name: name },
-            });
             dispatch(
               setSignInUserData({
-                name: data.user?.name,
-                email: data.user?.email,
+                name: name,
+                email: email,
                 isSignIn: true,
               })
             );
@@ -92,10 +86,8 @@ const SignupForm = () => {
       console.log("Google login success:", user);
       dispatch(setSignInUserData(user));
     }
-    console.log(user);
-    
   };
-
+  console.log(user);
   return (
     <>
       {user.isSignIn ? (
@@ -141,7 +133,7 @@ const SignupForm = () => {
                       <ul>
                         {errors.name && <li>{errors.name}</li>}
                         {errors.password && <li>{errors.password}</li>}
-                        {errors.password1 && <li>{errors.password1}</li>}
+                        {/* {errors.password1 && <li>{errors.password1}</li>} */}
                         {errors.email && <li>{errors.email}</li>}
                       </ul>
                     </div>
@@ -160,6 +152,7 @@ const SignupForm = () => {
                       value={name}
                       onChange={(event) => {
                         setName(event.target.value);
+
                         setIsActive(true);
                       }}
                     />

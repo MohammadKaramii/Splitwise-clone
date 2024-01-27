@@ -4,3 +4,17 @@
   text-align: center;
 }
 
+.form-control:focus {
+  padding: 0.4375rem !important;
+  border: 2px solid #18a582 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.btn-mint {
+  background-color: #5bc5a7 !important;
+  color: white !important;
+}
+.btn-mint:hover {
+  background-color: #48be9d !important;
+}

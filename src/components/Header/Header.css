@@ -1,0 +1,43 @@
+.logo {
+  display: flex;
+}
+
+.image-logo{
+  width: 30% !important;
+}
+.name-company {
+  display: block !important;
+  color: black !important;
+  text-decoration: none !important;
+}
+
+
+.logo p {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  margin-top: 20px;
+  padding: 5px;
+}
+
+.home-signup-btn button {
+  background-color: #1cc29f;
+  color: white;
+}
+button:hover {
+  transform: scale(1.02);
+}
+
+
+@media only screen and (max-width: 480px) {
+  .image-logo {
+    width: 50% !important;
+  }
+  
+  .btn-letters {
+    text-wrap: nowrap;
+  }
+  .name-company {
+    display: none !important;
+  }
+}

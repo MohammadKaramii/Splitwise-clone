@@ -75,10 +75,10 @@
   font-weight: 600;
 }
 
-.login-form:focus {
- 
-        padding: 0.4375rem  !important;
-        border: 2px solid #18A582 !important;
-        outline: none !important;
-        box-shadow: none !important;
+@media only screen and (max-width: 480px) {
+  iframe {
+    position: relative !important;
+
+    left: -48px !important;
+  }
 }

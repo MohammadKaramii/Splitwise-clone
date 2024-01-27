@@ -3,6 +3,8 @@ import HomePage from "./components/HomePage/HomePage";
 import "./App.css";
 import SignupForm from "./components/SingupForm/SignupForm";
 import LoginForm from "./components/LoginForm/LoginForm";
+import ResetPassword from "./components/ResetPassword/ResetPassword";
+import UpdatePassword from "./components/UpdatePassword/UpdatePassword";
 
 function App() {
   return (
@@ -12,6 +14,11 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm />} />
+          <Route path="/password_reset" element={<ResetPassword />} />
+          <Route
+            path="/password_reset/update_password"
+            element={<UpdatePassword />}
+          />
         </Routes>
       </Router>
     </>

@@ -15,17 +15,6 @@
   font-weight: 800;
 }
 
-.logo {
-  display: flex;
-}
-
-.logo p {
-  font-size: 25px;
-  font-weight: 500;
-  margin-top: 15px;
-  padding: 5px;
-}
-
 .home-info li {
   list-style: none;
 }
@@ -48,13 +37,6 @@
 .home-row1 {
   padding: 20px;
   gap: 10rem;
-}
-.home-signup-btn button {
-  background-color: #1cc29f;
-  color: white;
-}
-button:hover {
-  transform: scale(1.02);
 }
 
 .info {

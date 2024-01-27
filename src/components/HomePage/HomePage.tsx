@@ -8,7 +8,7 @@ import image4 from "../../assets/images/image4.png";
 import image5 from "../../assets/images/image5.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "../../assets/icons";
-import Header from "../Header";
+import Header from "../Header/Header";
 
 const HomePage = () => {
   const [activeIndex, setActiveIndex] = useState(0);

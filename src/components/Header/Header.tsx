@@ -1,25 +1,28 @@
 import { Link } from "react-router-dom";
-
+import './Header.css'
 const Header = () => {
   return (
-    <header className="d-flex justify-content-between p-1 px-5 navbar-user align-items-center">
+    <header className="d-flex justify-content-between py-1 px-5 navbar-user align-items-center">
     <div className="logo">
       <img
         src="https://assets.splitwise.com/assets/core/logo-square-65a6124237868b1d2ce2f5db2ab0b7c777e2348b797626816400534116ae22d7.svg"
-        className="w-25"
+        className="image-logo my-2"
       />
-      <p>Splitwise </p>
+      <Link to="/" className="name-company">
+
+      <p >Splitwise </p>
+      </Link>
     </div>
     <div className="d-flex">
     <Link to="/login">
       <button
         type="button"
-        className="btn btn-light btn-primary-light mx-2"
+        className="btn btn-light btn-primary-light mx-2 btn-letters"
       >
         Log in
       </button>
       </Link>
-      <Link to="/signup" className="home-signup-btn">
+      <Link to="/signup" className="home-signup-btn btn-letters">
         <button
           type="button"
           className="btn btn-success btn-primary-dark mx-2"
