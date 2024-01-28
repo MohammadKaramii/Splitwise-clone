@@ -1,5 +1,4 @@
 
-
 const RightComponent = () => {
   return (
     <div>RightComponent</div>

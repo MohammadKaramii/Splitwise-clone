@@ -1,3 +1,96 @@
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: "Montserrat", sans-serif;
+}
+
+
+.signup-left-logo img {
+  width: 100%;
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.form-container h6 {
+  color: #999;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+
+.name-input {
+  width: 23rem;
+  padding: 0;
+  font-size: 1.8rem;
+}
+
+input[type="text"] {
+  padding: 0.2rem;
+}
+
+.toppad {
+  height: 6rem;
+}
+
+.form-container label {
+  font-size: 1.5rem;
+  color: #333333;
+}
+
+
+
+
+.add-btn{
+  text-decoration: none;
+}
+
+.add-btn:hover{
+color: #5bc5a7;
+}
+
+.save-btn button {
+  background-color: #ff5216;
+  color: white;
+  text-shadow: 0 -0.09rem 0 #c83400;
+  font-size: 1.4rem;
+  padding: 0.6rem 1.1rem;
+  opacity: 0.92;
+  outline: none;
+  border: none;
+  border-radius: 0.2rem;
+}
+.save-btn button:hover {
+  opacity: 1;
+  background-color: #ff5216;
+  color: white;
+}
+
+
+.avatar{
+  max-width: 100%;
+  height: auto;
+}
+
+.add-person-btn{
+  color: #4099ff;
+}
+.add-person-btn:hover{
+  color: #3e7bff;
+  text-decoration:underline;
+}
+
+.group-list:active {
+  border-left: 6px solid #5bc5a7;
+  color: #5bc5a7;
+  font-weight: bold;
+}
+
+
 .middle-component-container {
     min-height: 100vh;
     border-left: 1px solid #ccc;

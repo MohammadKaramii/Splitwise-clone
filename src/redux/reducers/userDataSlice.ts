@@ -8,6 +8,8 @@ const initialState = {
     isSignIn: false,
     activeGroup: null,
     activeFriend: null,
+    id: "",
+  
   },
 };
 

@@ -2,7 +2,7 @@ import HeaderUser from "../HeaderUser/HeaderUser"
 import LeftComponent from "./LeftComponent"
 import MiddleComponent from "./MiddleComponent"
 import RightComponent from "./RightComponent"
-
+import "./MainPage.css"
 
 
 const MainPage = () => {

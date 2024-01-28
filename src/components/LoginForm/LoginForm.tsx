@@ -60,6 +60,7 @@ const LoginForm = () => {
             name: data.user.user_metadata.name,
             email: email,
             isSignIn: true,
+            id: data.user.id
           })
         );
       }
