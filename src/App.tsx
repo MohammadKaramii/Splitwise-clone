@@ -7,6 +7,7 @@ import ResetPassword from "./components/ResetPassword/ResetPassword";
 import UpdatePassword from "./components/UpdatePassword/UpdatePassword";
 import MainPage from "./components/MainPage/MainPage";
 import AddGroup from "./components/MainPage/AddGroup";
+import AddAnExpense from "./components/MainPage/AddAnExpense";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           />
           <Route path="/mainpage" element={<MainPage />} />
           <Route path="/groups/new" element={<AddGroup/>} />
+          <Route path="/addexpense" element={<AddAnExpense/>} />
         </Routes>
       </Router>
     </>

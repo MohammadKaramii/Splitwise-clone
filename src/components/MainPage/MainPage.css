@@ -84,7 +84,7 @@ color: #5bc5a7;
   text-decoration:underline;
 }
 
-.group-list:active {
+.open {
   border-left: 6px solid #5bc5a7;
   color: #5bc5a7;
   font-weight: bold;
@@ -100,6 +100,7 @@ color: #5bc5a7;
   .sec-text-area li {
     list-style: none;
   }
+  
   .main-box {
     display: flex;
   }

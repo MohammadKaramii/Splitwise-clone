@@ -6,11 +6,11 @@ import {
 } from '../../redux/reducers/userDataSlice';
 import { Link } from 'react-router-dom';
 import { supabase } from "../../../supabase";
-
+import { setGroupData } from "../../redux/reducers/dummyDataSlice";
 interface Group{
   id: string;
   groupName: string;
-  friends: string[]
+  friends: string
 }
 
 
@@ -20,6 +20,9 @@ const LeftComponent = () => {
   const dispatch = useDispatch();
   const [groups, setGroups] = useState<Group[]>([]);
 
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedFriend, setSelectedFriend] = useState('');
+  
   
   useEffect(() => {
     const fetchGroups = async () => {
@@ -34,6 +37,7 @@ const LeftComponent = () => {
         }
   
         setGroups(groupsData || []);
+        dispatch(setGroupData(groupsData))
         
       } catch (error) {
         console.error("Error fetching groups:", error);
@@ -46,22 +50,24 @@ const LeftComponent = () => {
   
 const friends = groups.map((group:Group) => group.friends)
 
-  
 
 
-
-  const handleClickOnGroup = (status:string[]) => {
+  const handleClickOnGroup = (groupName:string) => {
     dispatch(setSignInUserData({
-      activeGroup: status,
+      activeGroup: groupName,
       activeFriend: null
     }));
+    setSelectedGroup(groupName);
+    setSelectedFriend('');
   };
 
-  const handleClickOnFriends = (status:string[]) => {
+  const handleClickOnFriends = (friend:string) => {
     dispatch(setSignInUserData({
-      activeFriend: status,
+      activeFriend: friend,
       activeGroup: null
     }));
+    setSelectedFriend(friend);
+    setSelectedGroup('');
   };
 
 
@@ -97,9 +103,12 @@ const friends = groups.map((group:Group) => group.friends)
         </div>
 
         <div className='sec-text-area group-list'>
-          {groups.map((group:Group) => (
-            <li key={group.id} >
-              <h6 onClick={() => handleClickOnGroup([group.groupName])}>
+          {groups.map((group) => (
+            <li
+              key={group.id}
+              className={group.groupName === selectedGroup ? 'open' : ''}
+            >
+              <h6 onClick={() => handleClickOnGroup(group.groupName)}>
                 <i className="fa-solid fa-tag"></i>
                 {group.groupName}
               </h6>
@@ -115,8 +124,11 @@ const friends = groups.map((group:Group) => group.friends)
         </div>
 
         <div className='sec-text-area'>
-          {friends.map((friend, index) => (
-            <li key={index}>
+        {friends.map((friend, index) => (
+            <li
+              key={index}
+              className={friend === selectedFriend ? 'open' : ''}
+            >
               <h6 onClick={() => handleClickOnFriends(friend)}>
                 <i className="fa fa-user"></i>
                 {friend}

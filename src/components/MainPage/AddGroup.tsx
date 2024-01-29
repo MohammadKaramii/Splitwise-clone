@@ -67,7 +67,7 @@ console.log(currentGroups);
     };
 
 
-    const { data, error } = await supabase.from("groups").insert([newGroup]);
+    const { error } = await supabase.from("groups").insert([newGroup]);
 
     if (error) {
       toast.error(`Error saving group: ${error}`);
