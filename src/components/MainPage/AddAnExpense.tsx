@@ -6,6 +6,7 @@ import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { uid } from "uid";
 interface Errors {
   description?: string;
   cost?: string;
@@ -16,12 +17,6 @@ interface FormData {
   cost?: string;
   errors: Errors;
   isErrors: boolean;
-}
-
-interface HowSpent{
-  message: string;
-  cost: number;
-  comments: never[]
 }
 
 const AddAnExpense = () => {
@@ -46,7 +41,7 @@ const AddAnExpense = () => {
     setIsActive(true);
   };
 
-  const handleSubmit =  async(event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (description === "" || description?.trim() === "") {
@@ -57,53 +52,49 @@ const AddAnExpense = () => {
       errors.cost = "Cost must be a number";
     }
 
-    let newHowSpent: HowSpent[] = []
+    const newHowSpent = {
+      message: description!,
+      cost: Number(cost),
+      createdAt: new Date().toISOString(),
+      id: uid(),
+    };
+
+    
+    
     if (Object.keys(errors).length === 0) {
-      const updatedGroup = groups.map((group) => {
+      const updatedGroups = groups.map((group) => {
         if (group.groupName === activeGroup) {
           const updatedGroup = { ...group };
-           newHowSpent = (updatedGroup.howSpent ? [
-            {
-              message: description!,
-              cost: Number(cost),
-              comments: [],
-            },
-            ...updatedGroup.howSpent,
-          ] : [
-            {
-              message: description!,
-              cost: Number(cost),
-              comments: [],
-            },
-          ]);
-            updatedGroup.howSpent = newHowSpent;
-          
+
+          updatedGroup.howSpent = updatedGroup.howSpent
+            ? [newHowSpent, ...updatedGroup.howSpent]
+            : [newHowSpent];
+
           return updatedGroup;
         }
-        
+
         return group;
       });
-      console.log(newHowSpent);
+
+      const indexCurrentGroup = updatedGroups.findIndex(item => item.groupName === activeGroup)
+    
       
       const { error } = await supabase
       .from("groups")
-      .update({ howSpent:  newHowSpent})
-      .eq("groupName", activeGroup)
-
+      .update({ howSpent: updatedGroups[indexCurrentGroup].howSpent })
+      .eq("groupName", activeGroup);
+      
       if (error) {
-       toast.error(`Error updating data: ${error}`);
+        toast.error(`Error updating data: ${error}`);
       } else {
         toast.success("Data updated successfully!", {
-          duration: 4000
+          duration: 4000,
         });
         navigate("/mainpage");
       }
-  
-
-      console.log(updatedGroup);
-
-      dispatch(updateMessage(updatedGroup));
-
+      
+      dispatch(updateMessage(updatedGroups));
+      
       setFormData({
         ...formData,
         description: "",
@@ -111,7 +102,7 @@ const AddAnExpense = () => {
         errors: {},
         isErrors: false,
       });
-
+      
       return;
     } else {
       setFormData({
@@ -188,7 +179,6 @@ const AddAnExpense = () => {
                         <button type="submit">Add</button>
                       </div>
                     </div>
-
                   </>
                 )}
               </form>

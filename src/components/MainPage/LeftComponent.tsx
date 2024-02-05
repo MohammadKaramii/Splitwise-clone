@@ -71,6 +71,7 @@ const friends = groups.map((group:Group) => group.friends)
   };
 
 
+console.log(friends);
 
 
   return (
