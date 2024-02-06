@@ -40,7 +40,7 @@ const FriendActiveState: React.FC = () => {
       }, {} as { [key: string]: number });
     }
 
-    console.log(updatedMutualGroups);
+
 
     setMutualGroups(updatedMutualGroups);
   };

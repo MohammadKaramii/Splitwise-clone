@@ -53,7 +53,7 @@ const ListGroupCard = ({
   const addClassName = () => {
     setListActive(!listActive);
   };
-console.log(data.sharedWith);
+
 
   const handleTime = (time: string) => {
     const month = new Date(time)

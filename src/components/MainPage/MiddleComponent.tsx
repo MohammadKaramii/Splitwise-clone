@@ -28,7 +28,7 @@ const MiddleComponent = () => {
         );
       }
     }, 0) || 0;
-  console.log(totalAmount);
+
 
   return (
     <section className="middle-component-container">
@@ -113,7 +113,7 @@ const MiddleComponent = () => {
                         : "price-zero"
                     }`}
                   >
-                    ${totalAmount ? totalAmount : 0}
+                    ${totalAmount ? totalAmount.toFixed(2) : 0}
                   </p>
                 </div>
               </td>
@@ -125,7 +125,7 @@ const MiddleComponent = () => {
                       totalAmount < 0 ? "price-lose" : "price-zero"
                     }`}
                   >
-                    ${totalAmount > 0 ? 0 : totalAmount}
+                    ${totalAmount > 0 ? 0 : totalAmount.toFixed(2)}
                   </p>
                 </div>
               </td>
