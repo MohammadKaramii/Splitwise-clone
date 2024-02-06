@@ -6,20 +6,19 @@ import { updateMessage } from "../../redux/reducers/dummyDataSlice";
 import { uid } from "uid";
 import toast from "react-hot-toast";
 
-
 interface ListState {
   data: {
     message: string;
     cost: number;
     createdAt: string;
     id: string;
+    whoPaid: string;
+    sharedWith: string[]
   };
   members: string[];
   totalAmount: number;
   paidStatus: { [key: string]: number | undefined }[];
 }
-
-
 
 const ListGroupCard = ({
   data,
@@ -27,15 +26,13 @@ const ListGroupCard = ({
   totalAmount,
   paidStatus,
 }: ListState) => {
-  const activeGroup = useSelector(
-    (state: RootState) => state.userData.user.activeGroup
+  const user = useSelector(
+    (state: RootState) => state.userData.user
   );
-  const userName = useSelector((state: RootState) => state.userData.user.name);
+ const activeGroupName = user.activeGroup
+
 
   const [listActive, setListActive] = useState(false);
-  
-
- 
   const [editMode, setEditMode] = useState(false);
   const [description, setDescription] = useState(data.message);
   const groups = useSelector((state: RootState) => state.dummyData.groups);
@@ -44,8 +41,6 @@ const ListGroupCard = ({
   const [updateMembers, setUpdateMembers] = useState(members);
   const [timeSpent, setTimeSpent] = useState(data.createdAt);
 
- 
- 
   const handleEdit = () => {
     setEditMode(!editMode);
   };
@@ -55,23 +50,19 @@ const ListGroupCard = ({
     setUpdateMembers(updatedList);
   };
 
-
-
   const addClassName = () => {
     setListActive(!listActive);
   };
+console.log(data.sharedWith);
 
-
-
-const handleTime=(time: string) => {
-  const month = new Date(time).toLocaleString("en-US", { month: "long" }).slice(0, 3);
-  const day = new Date(time).getDate();
-  const year = time.slice(0, 4);
-return {month, day, year};
-}
-
-
-
+  const handleTime = (time: string) => {
+    const month = new Date(time)
+      .toLocaleString("en-US", { month: "long" })
+      .slice(0, 3);
+    const day = new Date(time).getDate();
+    const year = time.slice(0, 4);
+    return { month, day, year };
+  };
 
   const paidMembers = paidStatus?.reduce((acc: string[], member) => {
     const person = Object.entries(member);
@@ -80,67 +71,65 @@ return {month, day, year};
   }, []);
   const share = (cost / (members.length + 1)).toFixed(2);
 
-
-  
   const handleSubmitEdit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
+
     if (description === "" || description?.trim() === "") {
       toast.error("Description name can't be blank");
       return;
     }
-    
+
     if (cost <= 0) {
       toast.error("cost can't be zero or negative");
       return;
     }
-    
-    
-    
-      const newHowSpent = {
-        id: uid(),
-        cost: cost,
-        message: description,
-        createdAt: new Date().toISOString(),
-      };
-      
-    setTimeSpent(newHowSpent.createdAt)
 
-
-
+    
+    const newHowSpent = {
+      message: description,
+      cost: cost,
+      id: uid(),
+      createdAt: new Date().toISOString(),
+      whoPaid: data.whoPaid,
+      sharedWith: data.sharedWith
+    };
+    setTimeSpent(newHowSpent.createdAt);
+    
     const updatedGroups = groups.map((group) => {
-      if (group.groupName === activeGroup) {
+      if (group.groupName === activeGroupName) {
         const updatedGroup = { ...group };
-        const allExpenses = updatedGroup.howSpent.filter(
+        const allExpenses = updatedGroup.howSpent?.filter(
           (howSpent) => howSpent.id !== data.id
         );
 
         updatedGroup.howSpent = [newHowSpent, ...allExpenses];
-
+        updatedGroup.lastUpdate = newHowSpent.createdAt;
         return updatedGroup;
       }
       return group;
     });
 
     const indexCurrentGroup = updatedGroups.findIndex(
-      (item) => item.groupName === activeGroup
+      (item) => item.groupName === activeGroupName
     );
 
     try {
       const { error } = await supabase
         .from("groups")
-        .update({ howSpent: updatedGroups[indexCurrentGroup].howSpent })
-        .eq("groupName", activeGroup);
+        .update({
+          howSpent: updatedGroups[indexCurrentGroup].howSpent,
+          lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+        })
+        .eq("groupName", activeGroupName);
 
       if (error) {
         toast.error("Update failed. Please try again.");
       } else {
         dispatch(updateMessage(updatedGroups));
         setDescription(newHowSpent.message);
-        setCost(newHowSpent.cost)
+        setCost(newHowSpent.cost);
         toast.success("Updated successfully");
-        setEditMode(false)
-
+        setEditMode(false);
       }
     } catch (error) {
       console.error("Update Expense error:", error);
@@ -148,11 +137,11 @@ return {month, day, year};
 
       return;
     }
-    console.log(updatedGroups);
   };
 
-  console.log(data.cost);
 
+  const mem = data.whoPaid === user.name ? members : [...members, "You"]
+  
   return (
     <div className="list-box">
       <div className="list-data-container" onClick={addClassName}>
@@ -169,16 +158,16 @@ return {month, day, year};
 
         <div className="spent-status">
           <div>
-            <p>You Paid</p>
+            <p>{data.whoPaid === user.name ? 'You' : data.whoPaid} Paid</p>
             <strong>${cost}</strong>
           </div>
-          <div className="lent">
-            <p>You lent</p>
-            <strong>${(cost - cost / (members.length + 1)).toFixed(2)}</strong>
+          <div className={data.whoPaid === user.name ? 'lent-you' : 'you-lent'}>
+            <p>{data.whoPaid === user.name ? 'You lent' : `${data.whoPaid} lent you`} </p>
+            <strong>${data.whoPaid === user.name ?(cost - cost / (members.length + 1)).toFixed(2) : (cost / (members.length + 1)).toFixed(2)}</strong>
           </div>
         </div>
       </div>
-      <div className={!listActive ? "Show-list-info" : ""} >
+      <div className={!listActive ? "Show-list-info" : ""}>
         <div className="row Show-list-header statusOf-prices pt-3">
           <div className="col-3">
             <img src="https://s3.amazonaws.com/splitwise/uploads/category/icon/square_v2/uncategorized/general@2x.png" />
@@ -246,8 +235,15 @@ return {month, day, year};
                 <h4>
                   <strong> ${cost}</strong>
                 </h4>
-                <p>Added by {userName} on {handleTime(data.createdAt).month} {handleTime(data.createdAt).day}, {handleTime(data.createdAt).year}</p>
-                <p>Last updated by {userName} on {handleTime(timeSpent).month} {handleTime(timeSpent).day}, {handleTime(timeSpent).year}</p>
+                <p>
+                  Added by {user.name} on {handleTime(data.createdAt).month}{" "}
+                  {handleTime(data.createdAt).day},{" "}
+                  {handleTime(data.createdAt).year}
+                </p>
+                <p>
+                  Last updated by {user.name} on {handleTime(timeSpent).month}{" "}
+                  {handleTime(timeSpent).day}, {handleTime(timeSpent).year}
+                </p>
                 <div className="signup-btn top-btns list-btn">
                   <button className="button" onClick={handleEdit}>
                     Edit expense
@@ -260,10 +256,9 @@ return {month, day, year};
         <div className="row owe-list">
           <div className="status-left col ">
             <img src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png" />
-            <strong>{userName}</strong> paid <strong>${cost}</strong> and{" "}
-            <span className="status-right px-1">owes</span>{" "}
-            <strong>${share}</strong>
-            {members.map((member, index) => {
+            <strong>{data.whoPaid === user.name ? "You" : data.whoPaid}</strong> paid <strong>${cost}</strong>
+            {
+            mem.filter((member) => member !== data.whoPaid).map((member, index) => {
               const avatarLink = `https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-grey${
                 index + 1
               }-100px.png`;

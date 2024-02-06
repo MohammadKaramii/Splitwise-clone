@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import "./MainPage.css";
 import { useSelector } from "react-redux";
 import GroupActiveState from "./GroupActiveState";
@@ -9,8 +8,27 @@ import toast from "react-hot-toast";
 
 const MiddleComponent = () => {
   const user = useSelector((state: RootState) => state.userData.user);
-  const [totalAmount, setTotalAmount] = useState(0);
+  const groups = useSelector((state: RootState) => state.dummyData.groups);
+  const activeGroup = groups.find(
+    (group) => group.groupName === user.activeGroup
+  );
 
+  const totalAmount =
+    activeGroup?.howSpent?.reduce((sum, item) => {
+      if (item.whoPaid === user.name) {
+        return (
+          sum +
+          Number(
+            (item.cost - item.cost / (item.sharedWith.length + 1)).toFixed(2)
+          )
+        );
+      } else {
+        return (
+          sum - Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
+        );
+      }
+    }, 0) || 0;
+  console.log(totalAmount);
 
   return (
     <section className="middle-component-container">
@@ -79,32 +97,58 @@ const MiddleComponent = () => {
           </div>
         </div>
       </div>
-
-      <table className="table table-bordered">
-        <tbody>
-          <tr>
-            <td scope="col">
-              <div className="flex-grow-1">
-                <p className="mb-1 font-weight-light">total balance</p>
-                <p className="font-weight-light price">${totalAmount}</p>
-              </div>
-            </td>
-            <td scope="col">
-              <div className="flex-grow-1">
-                <p className="mb-1 font-weight-light">you owe</p>
-                <p className="font-weight-light price">$0</p>
-              </div>
-            </td>
-            <td scope="col">
-              <div className="flex-grow-1">
-                <p className="mb-1 font-weight-light">you are owed</p>
-                <p className="font-weight-light price">$2560</p>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
+      {user.activeGroup && (
+        <table className="table table-bordered">
+          <tbody>
+            <tr>
+              <td scope="col">
+                <div className="flex-grow-1">
+                  <p className="mb-1 font-weight-light">total balance</p>
+                  <p
+                    className={`font-weight-light ${
+                      totalAmount > 0
+                        ? "price"
+                        : totalAmount < 0
+                        ? "price-lose"
+                        : "price-zero"
+                    }`}
+                  >
+                    ${totalAmount ? totalAmount : 0}
+                  </p>
+                </div>
+              </td>
+              <td scope="col">
+                <div className="flex-grow-1">
+                  <p className="mb-1 font-weight-light">you owe</p>
+                  <p
+                    className={`font-weight-light ${
+                      totalAmount < 0 ? "price-lose" : "price-zero"
+                    }`}
+                  >
+                    ${totalAmount > 0 ? 0 : totalAmount}
+                  </p>
+                </div>
+              </td>
+              <td scope="col">
+                <div className="flex-grow-1">
+                  <p className="mb-1 font-weight-light">you are owed</p>
+                  <p
+                    className={`font-weight-light ${
+                      totalAmount > 0
+                        ? "price"
+                        : totalAmount < 0
+                        ? "price-lose"
+                        : "price-zero"
+                    }`}
+                  >
+                    ${totalAmount < 0 ? 0 : totalAmount}
+                  </p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
       {!user.activeGroup && !user.activeFriend && (
         <div className="row middle-bottom p-4">
           <img

@@ -19,7 +19,7 @@ const GroupActiveState = () => {
           <li key={data.id} className='list-group-item message-container'>
             <ListGroupCard
               data={data}
-              members={activeGroupData.friends}
+              members={data.sharedWith}
               totalAmount={totalAmount}
               paidStatus={activeGroupData.paid}
             />

@@ -25,7 +25,7 @@ const AddGroup = () => {
   );
 
 
-console.log(currentGroups);
+
 
   const handleMemberChange = (index: number, field: string, value: string) => {
     const updatedMembers = [...members];
@@ -64,6 +64,7 @@ console.log(currentGroups);
         .filter((member) => member.id !== userData.id)
         .map((member) => member.name),
       userId: userData.id,
+      lastUpdate: new Date().toISOString(),
     };
 
 

@@ -12,10 +12,13 @@ const initialState = {
           cost: 0,
           id: "",
           createdAt: "",
+          whoPaid: "",
+          sharedWith: [""],
         },
       ],
       paid: [],
       userId: "",
+      lastUpdate: "",
     },
   ],
 };

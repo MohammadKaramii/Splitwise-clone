@@ -10,6 +10,8 @@ import { uid } from "uid";
 interface Errors {
   description?: string;
   cost?: string;
+  whoPaid?: string;
+  sharedWith?: string;
 }
 
 interface FormData {
@@ -19,10 +21,19 @@ interface FormData {
   isErrors: boolean;
 }
 
+interface HowSpent {
+  createdAt: string;
+  message?: string;
+  cost?: number;
+  id?: string;
+  whoPaid?: string;
+  sharedWith: string[];
+}
+
 const AddAnExpense = () => {
-  const activeGroup = useSelector(
-    (state: RootState) => state.userData.user.activeGroup
-  );
+  const user = useSelector((state: RootState) => state.userData.user);
+
+  const activeGroup = user.activeGroup;
   const groups = useSelector((state: RootState) => state.dummyData.groups);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -35,84 +46,109 @@ const AddAnExpense = () => {
 
   const { description, cost, errors, isErrors } = formData;
   const [isActive, setIsActive] = useState(false);
+  const [whoPaid, setWhoPaid] = useState("");
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+
+  const handlePayerSelection = (name: string) => {
+    setWhoPaid(name);
+    if (!selectedFriends.includes(name) && name !== user.name) {
+      setSelectedFriends([name]);
+    }
+  };
+
+  const handleFriendSelection = (friend: string) => {
+    if (selectedFriends.includes(friend)) {
+      setSelectedFriends(
+        selectedFriends.filter((selectedFriend) => selectedFriend !== friend)
+      );
+    } else {
+      setSelectedFriends([...selectedFriends, friend]);
+    }
+  };
+
+  const firendsInGroup = groups.find(
+    (group) => group.groupName === activeGroup
+  )?.friends;
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [event.target.id]: event.target.value });
     setIsActive(true);
   };
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (description === "" || description?.trim() === "") {
-      errors.description = "Description name can't be blank";
+    let formErrors: Errors = {};
+
+    if (!description || !description.trim()) {
+      formErrors.description = "Description name can't be blank";
+    }
+    if (!cost || !validator.isNumeric(cost)) {
+      formErrors.cost = "Cost must be a number";
+    }
+    if (!whoPaid) {
+      formErrors.whoPaid = "You must select a payer";
+    }
+    if (whoPaid !== user.name && !selectedFriends.includes(whoPaid)) {
+      formErrors.sharedWith = "You must select the payer in shared friends";
+    }
+    if (selectedFriends.length === 0) {
+      formErrors.sharedWith = "Please choose a friend for share expense";
     }
 
-    if (cost === "" || cost?.trim() === "" || !validator.isNumeric(cost!)) {
-      errors.cost = "Cost must be a number";
+    if (Object.keys(formErrors).length > 0) {
+      setFormData({ ...formData, errors: formErrors, isErrors: true });
+      return;
     }
 
-    const newHowSpent = {
-      message: description!,
+    const newEntry: HowSpent = {
+      message: description,
       cost: Number(cost),
-      createdAt: new Date().toISOString(),
       id: uid(),
+      createdAt: new Date().toISOString(),
+      whoPaid: whoPaid,
+      sharedWith: selectedFriends,
     };
 
-    
-    
-    if (Object.keys(errors).length === 0) {
-      const updatedGroups = groups.map((group) => {
-        if (group.groupName === activeGroup) {
-          const updatedGroup = { ...group };
-
-          updatedGroup.howSpent = updatedGroup.howSpent
-            ? [newHowSpent, ...updatedGroup.howSpent]
-            : [newHowSpent];
-
-          return updatedGroup;
-        }
-
-        return group;
-      });
-
-      const indexCurrentGroup = updatedGroups.findIndex(item => item.groupName === activeGroup)
-    
-      
-      const { error } = await supabase
-      .from("groups")
-      .update({ howSpent: updatedGroups[indexCurrentGroup].howSpent })
-      .eq("groupName", activeGroup);
-      
-      if (error) {
-        toast.error(`Error updating data: ${error}`);
-      } else {
-        toast.success("Data updated successfully!", {
-          duration: 4000,
-        });
-        navigate("/mainpage");
+    const updatedGroups = groups.map((group) => {
+      if (group.groupName === activeGroup) {
+        const updatedGroup = {
+          ...group,
+          howSpent: [newEntry, ...(group.howSpent || [])],
+        };
+        return updatedGroup;
       }
-      
-      dispatch(updateMessage(updatedGroups));
-      
-      setFormData({
-        ...formData,
-        description: "",
-        cost: "",
-        errors: {},
-        isErrors: false,
-      });
-      
-      return;
-    } else {
-      setFormData({
-        ...formData,
-        errors,
-        isErrors: true,
-      });
+      return group;
+    });
 
-      return;
+    const indexCurrentGroup = updatedGroups.findIndex(
+      (item) => item.groupName === activeGroup
+    );
+
+    const { error } = await supabase
+      .from("groups")
+      .update({
+        howSpent: updatedGroups[indexCurrentGroup].howSpent,
+        lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+      })
+      .eq("groupName", activeGroup);
+
+    if (error) {
+      toast.error(`Error Adding data: ${error}`);
+    } else {
+      toast.success(`Data added successfully!`, {
+        duration: 4000,
+      });
+      navigate("/mainpage");
     }
+
+    dispatch(updateMessage(updatedGroups));
+
+    setFormData({
+      description: "",
+      cost: "",
+      errors: {},
+      isErrors: false,
+    });
   };
   return (
     <>
@@ -135,6 +171,8 @@ const AddAnExpense = () => {
                     <ul>
                       {errors.description && <li>{errors.description}</li>}
                       {errors.cost && <li>{errors.cost}</li>}
+                      {errors.whoPaid && <li>{errors.whoPaid}</li>}
+                      {errors.sharedWith && <li>{errors.sharedWith}</li>}
                     </ul>
                   </div>
                 </div>
@@ -173,6 +211,58 @@ const AddAnExpense = () => {
                           onChange={handleChange}
                         />
                       </div>
+                    </div>
+
+                    <div className="friend-selection">
+                      <label>Choose who paid:</label>
+                      <ul className="list-group">
+                        {firendsInGroup?.map((friend) => (
+                          <li
+                            key={friend}
+                            onClick={() => handlePayerSelection(friend)}
+                            className={
+                              whoPaid === friend
+                                ? "list-group-item  my-1 active"
+                                : "list-group-item  my-1"
+                            }
+                          >
+                            {friend}
+                          </li>
+                        ))}
+                        <li
+                          key={user.name}
+                          onClick={() => handlePayerSelection(user.name)}
+                          className={
+                            whoPaid === user.name
+                              ? "list-group-item my-1 active"
+                              : "list-group-item  my-1"
+                          }
+                        >
+                          {user.name}
+                        </li>
+                      </ul>
+                      {whoPaid && <p>You selected: {whoPaid}</p>}
+                    </div>
+                    <div className="friend-selection">
+                      <label>Choose friends who will share the expense:</label>
+                      <ul className="list-group">
+                        {firendsInGroup?.map((friend) => (
+                          <li
+                            key={friend}
+                            onClick={() => handleFriendSelection(friend)}
+                            className={
+                              selectedFriends.includes(friend)
+                                ? "list-group-item  my-1 active"
+                                : "list-group-item  my-1"
+                            }
+                          >
+                            {friend}
+                          </li>
+                        ))}
+                      </ul>
+                      {selectedFriends.length > 0 && (
+                        <p>Selected friends: {selectedFriends.join(", ")}</p>
+                      )}
                     </div>
                     <div className="bottom-btns">
                       <div className="signup-btn Add-btn">
