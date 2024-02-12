@@ -24,9 +24,6 @@ const AddGroup = () => {
     state.dummyData.groups.filter((group) => group.userId === userData.id)
   );
 
-
-
-
   const handleMemberChange = (index: number, field: string, value: string) => {
     const updatedMembers = [...members];
     if (field === "name") {
@@ -66,7 +63,6 @@ const AddGroup = () => {
       userId: userData.id,
       lastUpdate: new Date().toISOString(),
     };
-
 
     const { error } = await supabase.from("groups").insert([newGroup]);
 
@@ -160,7 +156,7 @@ const AddGroup = () => {
                             <button
                               className="btn border-0 mt-1  text-danger fa-solid fa-x"
                               onClick={() => handleRemoveMember(index)}
-                            ></button>
+                            />
                           </div>
                         )}
                       </div>

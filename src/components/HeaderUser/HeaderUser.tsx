@@ -40,25 +40,11 @@ const HeaderUser = () => {
             </button>
             <ul className="dropdown-menu">
               <li>
-                <Link className="dropdown-item" to="/mainpage">
-                  Your account
-                </Link>
-              </li>
-              <li>
-                <Link className="dropdown-item" to="/mainpage">
+                <Link className="dropdown-item" to="/groups/new">
                   Create a group
                 </Link>
               </li>
-              <li>
-                <Link className="dropdown-item" to="/mainpage">
-                  Fairness calculators
-                </Link>
-              </li>
-              <li>
-                <Link className="dropdown-item" to="/mainpage">
-                  Contact support
-                </Link>
-              </li>
+
               <li>
                 <Link className="dropdown-item" to="/" onClick={handleLogout}>
                   Log out

@@ -11,13 +11,13 @@ const MainPage = () => {
            <HeaderUser />
            <div className="container main-box">
               <div className="row">
-                 <div className="col">
+                 <div className="col-lg-3">
                     <LeftComponent />
                  </div>
-                 <div className="col-lg-7 col-sm-12">
+                 <div className="col-lg-6 col-sm-12">
                     <MiddleComponent />
                  </div>
-                 <div className="col">
+                 <div className="col-lg-3">
                     <RightComponent />
                  </div>
               </div>

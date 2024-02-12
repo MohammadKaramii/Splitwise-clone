@@ -7,6 +7,7 @@ import {
 import { Link } from "react-router-dom";
 import { supabase } from "../../../supabase";
 import { setGroupData } from "../../redux/reducers/dummyDataSlice";
+import toast from "react-hot-toast";
 interface Group {
   id: string;
   groupName: string;
@@ -20,6 +21,8 @@ const LeftComponent = () => {
 
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedFriend, setSelectedFriend] = useState("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -41,10 +44,10 @@ const LeftComponent = () => {
     };
 
     fetchGroups();
-  }, [userData.id]);
+  }, [userData.id, groups]);
 
   const friends = groups.map((group: Group) => group.friends);
-
+  const uniqueFriends = Array.from(new Set(friends.flat()));
   const handleClickOnGroup = (groupName: string) => {
     dispatch(
       setSignInUserData({
@@ -67,10 +70,63 @@ const LeftComponent = () => {
     setSelectedGroup("");
   };
 
+  const handleDeleteGroup = (groupId: string) => {
+    setShowConfirmation(true);
+    setGroupToDelete(groupId);
+  };
 
+  const confirmDeleteGroup = async () => {
+    try {
+      if (groupToDelete) {
+        const { error } = await supabase
+          .from("groups")
+          .delete()
+          .match({ id: groupToDelete });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const updatedGroups = groups.filter(
+          (group) => group.id !== groupToDelete
+        );
+        setGroups(updatedGroups);
+        dispatch(setGroupData(updatedGroups));
+        toast.success("Group deleted successfully");
+      }
+
+      setGroupToDelete(null);
+      setShowConfirmation(false);
+    } catch (error) {
+      console.error("Error deleting group:", error);
+      toast.error(`Error deleting group:, ${error}`);
+    }
+  };
+
+  const cancelDeleteGroup = () => {
+    setGroupToDelete(null);
+    setShowConfirmation(false);
+  };
 
   return (
     <div className="right-contianer p-3">
+      {showConfirmation && (
+        <div className="confirmation-dialog alert alert-danger mt-3 p-2">
+          <p className="m-0">Are you sure you want to delete this group?</p>
+          <div className="mt-2">
+            <button
+              className="btn btn-secondary m-1"
+              onClick={cancelDeleteGroup}
+            >
+              Cancel
+            </button>
+            <button className="btn btn-danger m-1" onClick={confirmDeleteGroup}>
+              Confirm
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="dashboard">
         <img
           src="https://assets.splitwise.com/assets/core/logo-square-65a6124237868b1d2ce2f5db2ab0b7c777e2348b797626816400534116ae22d7.svg"
@@ -105,12 +161,20 @@ const LeftComponent = () => {
           {groups.map((group) => (
             <li
               key={group.id}
-              className={group.groupName === selectedGroup ? "open" : ""}
+              className={`${
+                group.groupName === selectedGroup ? "open" : ""
+              } d-flex justify-content-between`}
+              onClick={() => handleClickOnGroup(group.groupName)}
             >
-              <h6 onClick={() => handleClickOnGroup(group.groupName)}>
+              <h6>
                 <i className="fa-solid fa-tag"></i>
                 {group.groupName}
               </h6>
+
+              <i
+                className="fa fa-trash text-danger my-2 icon-button"
+                onClick={() => handleDeleteGroup(group.id)}
+              />
             </li>
           ))}
         </div>
@@ -122,7 +186,7 @@ const LeftComponent = () => {
         </div>
 
         <div className="sec-text-area">
-          {friends.flat().map((friend, index) => (
+          {uniqueFriends.flat().map((friend, index) => (
             <li key={index} className={friend === selectedFriend ? "open" : ""}>
               <h6 onClick={() => handleClickOnFriends(friend)}>
                 <i className="fa fa-user"></i>

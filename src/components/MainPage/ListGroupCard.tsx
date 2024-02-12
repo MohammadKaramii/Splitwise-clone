@@ -13,24 +13,16 @@ interface ListState {
     createdAt: string;
     id: string;
     whoPaid: string;
-    sharedWith: string[]
+    sharedWith: string[];
   };
   members: string[];
   totalAmount: number;
   paidStatus: { [key: string]: number | undefined }[];
 }
 
-const ListGroupCard = ({
-  data,
-  members,
-  totalAmount,
-  paidStatus,
-}: ListState) => {
-  const user = useSelector(
-    (state: RootState) => state.userData.user
-  );
- const activeGroupName = user.activeGroup
-
+const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
+  const user = useSelector((state: RootState) => state.userData.user);
+  const activeGroupName = user.activeGroup;
 
   const [listActive, setListActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -45,15 +37,19 @@ const ListGroupCard = ({
     setEditMode(!editMode);
   };
 
-  const handleMemberRemove = (member: string) => {
+  const handleMemberRemove = (event: any, member: string) => {
+    event.preventDefault();
     const updatedList = updateMembers.filter((m) => m !== member);
-    setUpdateMembers(updatedList);
+    if (updatedList.length === 0) {
+      toast.error("At least one member must remain");
+    } else {
+      setUpdateMembers(updatedList);
+      toast.success("Member removed successfully");
+    }
   };
-
   const addClassName = () => {
     setListActive(!listActive);
   };
-
 
   const handleTime = (time: string) => {
     const month = new Date(time)
@@ -84,17 +80,21 @@ const ListGroupCard = ({
       return;
     }
 
-    
+    if (updateMembers.length === 0) {
+      toast.error("At least one member must remain");
+      return;
+    }
+
     const newHowSpent = {
       message: description,
       cost: cost,
       id: uid(),
       createdAt: new Date().toISOString(),
       whoPaid: data.whoPaid,
-      sharedWith: data.sharedWith
+      sharedWith: updateMembers,
     };
     setTimeSpent(newHowSpent.createdAt);
-    
+
     const updatedGroups = groups.map((group) => {
       if (group.groupName === activeGroupName) {
         const updatedGroup = { ...group };
@@ -139,9 +139,8 @@ const ListGroupCard = ({
     }
   };
 
+  const mem = data.whoPaid === user.name ? members : [...members, "You"];
 
-  const mem = data.whoPaid === user.name ? members : [...members, "You"]
-  
   return (
     <div className="list-box">
       <div className="list-data-container" onClick={addClassName}>
@@ -158,12 +157,21 @@ const ListGroupCard = ({
 
         <div className="spent-status">
           <div>
-            <p>{data.whoPaid === user.name ? 'You' : data.whoPaid} Paid</p>
+            <p>{data.whoPaid === user.name ? "You" : data.whoPaid} Paid</p>
             <strong>${cost}</strong>
           </div>
-          <div className={data.whoPaid === user.name ? 'lent-you' : 'you-lent'}>
-            <p>{data.whoPaid === user.name ? 'You lent' : `${data.whoPaid} lent you`} </p>
-            <strong>${data.whoPaid === user.name ?(cost - cost / (members.length + 1)).toFixed(2) : (cost / (members.length + 1)).toFixed(2)}</strong>
+          <div className={data.whoPaid === user.name ? "lent-you" : "you-lent"}>
+            <p>
+              {data.whoPaid === user.name
+                ? "You lent"
+                : `${data.whoPaid} lent you`}{" "}
+            </p>
+            <strong>
+              $
+              {data.whoPaid === user.name
+                ? (cost - cost / (members.length + 1)).toFixed(2)
+                : (cost / (members.length + 1)).toFixed(2)}
+            </strong>
           </div>
         </div>
       </div>
@@ -209,7 +217,7 @@ const ListGroupCard = ({
                       >
                         {member}
                         <button
-                          onClick={() => handleMemberRemove(member)}
+                          onClick={(event) => handleMemberRemove(event, member)}
                           className="btn btn-danger"
                         >
                           <i className="fas fa-trash"></i>
@@ -224,7 +232,10 @@ const ListGroupCard = ({
                 <button
                   type="button"
                   className="btn btn-secondary m-2"
-                  onClick={handleEdit}
+                  onClick={() => {
+                    handleEdit();
+                    setUpdateMembers(members);
+                  }}
                 >
                   Cancel
                 </button>
@@ -256,33 +267,35 @@ const ListGroupCard = ({
         <div className="row owe-list">
           <div className="status-left col ">
             <img src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png" />
-            <strong>{data.whoPaid === user.name ? "You" : data.whoPaid}</strong> paid <strong>${cost}</strong>
-            {
-            mem.filter((member) => member !== data.whoPaid).map((member, index) => {
-              const avatarLink = `https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-grey${
-                index + 1
-              }-100px.png`;
-              return (
-                <div className="mt-4" key={member}>
-                  <span>
-                    <img src={avatarLink} />
-                  </span>
-                  <span>
-                    <strong> {member}</strong>{" "}
-                    <span className="status-right px-1">owes</span>
-                    {paidMembers ? (
-                      !paidMembers.includes(member) ? (
-                        <strong>${share}</strong>
+            <strong>{data.whoPaid === user.name ? "You" : data.whoPaid}</strong>{" "}
+            paid <strong>${cost}</strong>
+            {mem
+              .filter((member) => member !== data.whoPaid)
+              .map((member, index) => {
+                const avatarLink = `https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-grey${
+                  index + 1
+                }-100px.png`;
+                return (
+                  <div className="mt-4" key={member}>
+                    <span>
+                      <img src={avatarLink} />
+                    </span>
+                    <span>
+                      <strong> {member}</strong>{" "}
+                      <span className="status-right px-1">owes</span>
+                      {paidMembers ? (
+                        !paidMembers.includes(member) ? (
+                          <strong>${share}</strong>
+                        ) : (
+                          <strong>$0.00</strong>
+                        )
                       ) : (
-                        <strong>$0.00</strong>
-                      )
-                    ) : (
-                      <strong>${share}</strong>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+                        <strong>${share}</strong>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         </div>
         <ul className="paid-list">
