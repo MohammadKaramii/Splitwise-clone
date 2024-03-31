@@ -567,6 +567,11 @@ button:hover {
   color: #ff5216;
 }
 
+.lent-text{
+  margin-top: 8px;
+  margin-bottom: 0px;
+}
+
 .message-container p {
   margin-bottom: 0;
 }
@@ -668,6 +673,15 @@ button:hover {
   display: flex;
   gap: 1rem;
   padding: 0.6rem 0.6rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-radius: 10px;
+}
+.right-part-member:hover {
+  background-color: #f8f9fa;
+}
+.active-member {
+  background-color: #5BC5A7;
 }
 .member-data p {
   margin-bottom: 0;

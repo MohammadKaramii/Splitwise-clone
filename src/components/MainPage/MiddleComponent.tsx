@@ -5,30 +5,52 @@ import FriendActiveSatate from "./FriendActiveState";
 import { Link } from "react-router-dom";
 import { RootState } from "../../redux/store";
 import toast from "react-hot-toast";
-
+import { useMemo, useState } from "react";
 const MiddleComponent = () => {
   const user = useSelector((state: RootState) => state.userData.user);
   const groups = useSelector((state: RootState) => state.dummyData.groups);
-  const activeGroup = groups.find(
-    (group) => group.groupName === user.activeGroup
+  const paids = useSelector((state: RootState) => state.paids.paids);
+  const activeGroup = useMemo(
+    () => groups.find((group) => group.groupName === user.activeGroup),
+    [groups, user.activeGroup]
   );
 
-  const totalAmount =
-    activeGroup?.howSpent?.reduce((sum, item) => {
-      if (item.whoPaid === user.name) {
-        return (
-          sum +
-          Number(
-            (item.cost - item.cost / (item.sharedWith.length + 1)).toFixed(2)
-          )
-        );
-      } else {
-        return (
-          sum - Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
-        );
-      }
-    }, 0) || 0;
+  console.log(paids);
+  
+  const totalAmount = useMemo(() => {
+    return (
+      activeGroup?.howSpent?.reduce((sum, item) => {
+        if (item.whoPaid === user.name) {
+          return (
+            sum +
+            Number(
+              (item.cost - item.cost / (item.sharedWith.length + 1)).toFixed(2)
+            )
+          );
+        } else {
+          const paidToCurrentUser = paids.find(
+            (paid) => paid.toWho === user.name
+          );
 
+          if (paidToCurrentUser && item.whoPaid === paidToCurrentUser.whoPaid) {
+            console.log(paidToCurrentUser);
+            
+            
+            return (
+              sum -
+              Number((item.cost / (item.sharedWith.length + 1)).toFixed(2)) -
+              paidToCurrentUser.howMuchPaid
+            );
+          } else {
+            return (
+              sum -
+              Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
+            );
+          }
+        }
+      }, 0) || 0
+    );
+  }, [activeGroup, user.name]);
 
   return (
     <section className="middle-component-container">
@@ -141,7 +163,7 @@ const MiddleComponent = () => {
                         : "price-zero"
                     }`}
                   >
-                    ${totalAmount < 0 ? 0 : totalAmount}
+                    ${totalAmount < 0 ? 0 : totalAmount.toFixed(2)}
                   </p>
                 </div>
               </td>

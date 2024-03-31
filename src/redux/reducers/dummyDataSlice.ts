@@ -16,7 +16,11 @@ const initialState = {
           sharedWith: [""],
         },
       ],
-      paid: [],
+      paid: [{
+        whoPaid: "",
+        howMuchPaid: 0,
+        toWho: "",
+      }],
       userId: "",
       lastUpdate: "",
     },

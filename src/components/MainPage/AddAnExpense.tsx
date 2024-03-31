@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import validator from "validator";
 import { useDispatch, useSelector } from "react-redux";
 import { updateMessage } from "../../redux/reducers/dummyDataSlice";
@@ -32,11 +32,11 @@ interface HowSpent {
 
 const AddAnExpense = () => {
   const user = useSelector((state: RootState) => state.userData.user);
-
   const activeGroup = user.activeGroup;
   const groups = useSelector((state: RootState) => state.dummyData.groups);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState<FormData>({
     description: "",
     cost: "",
@@ -49,107 +49,121 @@ const AddAnExpense = () => {
   const [whoPaid, setWhoPaid] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
 
-  const handlePayerSelection = (name: string) => {
-    setWhoPaid(name);
-    if (!selectedFriends.includes(name) && name !== user.name) {
-      setSelectedFriends([name]);
-    }
-  };
-
-  const handleFriendSelection = (friend: string) => {
-    if (selectedFriends.includes(friend)) {
-      setSelectedFriends(
-        selectedFriends.filter((selectedFriend) => selectedFriend !== friend)
-      );
-    } else {
-      setSelectedFriends([...selectedFriends, friend]);
-    }
-  };
-
-  const firendsInGroup = groups.find(
-    (group) => group.groupName === activeGroup
-  )?.friends;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [event.target.id]: event.target.value });
-    setIsActive(true);
-  };
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    let formErrors: Errors = {};
-
-    if (!description || !description.trim()) {
-      formErrors.description = "Description name can't be blank";
-    }
-    if (!cost || !validator.isNumeric(cost)) {
-      formErrors.cost = "Cost must be a number";
-    }
-    if (!whoPaid) {
-      formErrors.whoPaid = "You must select a payer";
-    }
-    if (whoPaid !== user.name && !selectedFriends.includes(whoPaid)) {
-      formErrors.sharedWith = "You must select the payer in shared friends";
-    }
-    if (selectedFriends.length === 0) {
-      formErrors.sharedWith = "Please choose a friend for share expense";
-    }
-
-    if (Object.keys(formErrors).length > 0) {
-      setFormData({ ...formData, errors: formErrors, isErrors: true });
-      return;
-    }
-
-    const newEntry: HowSpent = {
-      message: description,
-      cost: Number(cost),
-      id: uid(),
-      createdAt: new Date().toISOString(),
-      whoPaid: whoPaid,
-      sharedWith: selectedFriends,
-    };
-
-    const updatedGroups = groups.map((group) => {
-      if (group.groupName === activeGroup) {
-        const updatedGroup = {
-          ...group,
-          howSpent: [newEntry, ...(group.howSpent || [])],
-        };
-        return updatedGroup;
+  const handlePayerSelection = useCallback(
+    (name: string) => {
+      setWhoPaid(name);
+      if (!selectedFriends.includes(name) && name !== user.name) {
+        setSelectedFriends([name]);
       }
-      return group;
-    });
+    },
+    [selectedFriends, user.name]
+  );
 
-    const indexCurrentGroup = updatedGroups.findIndex(
-      (item) => item.groupName === activeGroup
-    );
+  const handleFriendSelection = useCallback(
+    (friend: string) => {
+      if (selectedFriends.includes(friend)) {
+        setSelectedFriends(
+          selectedFriends.filter((selectedFriend) => selectedFriend !== friend)
+        );
+      } else {
+        setSelectedFriends([...selectedFriends, friend]);
+      }
+    },
+    [selectedFriends]
+  );
 
-    const { error } = await supabase
-      .from("groups")
-      .update({
-        howSpent: updatedGroups[indexCurrentGroup].howSpent,
-        lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
-      })
-      .eq("groupName", activeGroup);
+  const firendsInGroup = useMemo(
+    () => groups.find((group) => group.groupName === activeGroup)?.friends,
+    [groups, activeGroup]
+  );
 
-    if (error) {
-      toast.error(`Error Adding data: ${error}`);
-    } else {
-      toast.success(`Data added successfully!`, {
-        duration: 4000,
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData({ ...formData, [event.target.id]: event.target.value });
+      setIsActive(true);
+    },
+    [formData]
+  );
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      const formErrors: Errors = {};
+
+      if (!description || !description.trim()) {
+        formErrors.description = "Description name can't be blank";
+      }
+      if (!cost || !validator.isNumeric(cost)) {
+        formErrors.cost = "Cost must be a number";
+      }
+      if (!whoPaid) {
+        formErrors.whoPaid = "You must select a payer";
+      }
+      if (whoPaid !== user.name && !selectedFriends.includes(whoPaid)) {
+        formErrors.sharedWith = "You must select the payer in shared friends";
+      }
+      if (selectedFriends.length === 0) {
+        formErrors.sharedWith = "Please choose a friend for share expense";
+      }
+
+      if (Object.keys(formErrors).length > 0) {
+        setFormData({ ...formData, errors: formErrors, isErrors: true });
+        return;
+      }
+
+      const newEntry: HowSpent = {
+        message: description,
+        cost: Number(cost),
+        id: uid(),
+        createdAt: new Date().toISOString(),
+        whoPaid: whoPaid,
+        sharedWith: selectedFriends,
+      };
+
+      const updatedGroups = groups.map((group) => {
+        if (group.groupName === activeGroup) {
+          const updatedGroup = {
+            ...group,
+            howSpent: [newEntry, ...(group.howSpent || [])],
+          };
+          return updatedGroup;
+        }
+        return group;
       });
-      navigate("/mainpage");
-    }
 
-    dispatch(updateMessage(updatedGroups));
+      const indexCurrentGroup = updatedGroups.findIndex(
+        (item) => item.groupName === activeGroup
+      );
 
-    setFormData({
-      description: "",
-      cost: "",
-      errors: {},
-      isErrors: false,
-    });
-  };
+      const { error } = await supabase
+        .from("groups")
+        .update({
+          howSpent: updatedGroups[indexCurrentGroup].howSpent,
+          lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+        })
+        .eq("groupName", activeGroup);
+
+      if (error) {
+        toast.error(`Error Adding data: ${error}`);
+      } else {
+        toast.success(`Data added successfully!`, {
+          duration: 4000,
+        });
+        navigate("/mainpage");
+      }
+
+      dispatch(updateMessage(updatedGroups));
+
+      setFormData({
+        description: "",
+        cost: "",
+        errors: {},
+        isErrors: false,
+      });
+    },
+    [description, cost, whoPaid, user.name, selectedFriends, groups, activeGroup, dispatch, formData, navigate]
+  );
+
   return (
     <>
       <div className="toppad"></div>

@@ -1,10 +1,11 @@
 import { useDispatch, useSelector } from "react-redux";
-import ListGroupCard from "./ListGroupCard";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { updateMessage } from "../../redux/reducers/dummyDataSlice";
-import { useState } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import ListGroupCard from "./ListGroupCard";
+
 const GroupActiveState = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState("");
@@ -12,70 +13,83 @@ const GroupActiveState = () => {
   const activeGroup = useSelector(
     (state: RootState) => state.userData.user.activeGroup
   );
-  const activeGroupData = groups.find(
-    (group) => group.groupName === activeGroup
+  const activeGroupData = useMemo(
+    () => groups.find((group) => group.groupName === activeGroup),
+    [groups, activeGroup]
   );
+
+  const totalAmount = useMemo(
+    () =>
+      activeGroupData
+        ? activeGroupData.howSpent.reduce((sum, item) => sum + item.cost, 0)
+        : 0,
+    [activeGroupData]
+  );
+
   const dispatch = useDispatch();
-  if (!activeGroupData || !activeGroupData.howSpent) return null;
 
-  const totalAmount = activeGroupData.howSpent.reduce(
-    (sum, item) => sum + item.cost,
-    0
-  );
+  useEffect(() => {
+    if (!activeGroupData || !activeGroupData.howSpent) {
+      return;
+    }
+  }, [activeGroupData]);
 
-  const handleDeleteConfirmation = (id: string) => {
+  const handleDeleteConfirmation = useCallback((id: string) => {
     setShowConfirmation(true);
     setDeleteItemId(id);
-  };
+  }, []);
 
-  const handleDeleteCancel = () => {
+  const handleDeleteCancel = useCallback(() => {
     setShowConfirmation(false);
     setDeleteItemId("");
-  };
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    const updatedGroups = groups.map((group) => {
-      if (group.groupName === activeGroup) {
-        const updatedGroup = { ...group };
-        updatedGroup.howSpent = updatedGroup.howSpent.filter(
-          (expense) => expense.id !== id
-        );
-        updatedGroup.lastUpdate = new Date().toISOString();
-        return updatedGroup;
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const updatedGroups = groups.map((group) => {
+        if (group.groupName === activeGroup) {
+          const updatedGroup = { ...group };
+          updatedGroup.howSpent = updatedGroup.howSpent.filter(
+            (expense) => expense.id !== id
+          );
+          updatedGroup.lastUpdate = new Date().toISOString();
+          return updatedGroup;
+        }
+        return group;
+      });
+
+      const indexCurrentGroup = updatedGroups.findIndex(
+        (group) => group.groupName === activeGroup
+      );
+
+      try {
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            howSpent: updatedGroups[indexCurrentGroup].howSpent,
+            lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+          })
+          .eq("groupName", activeGroup);
+
+        if (error) {
+          toast.error("Delete failed. Please try again.");
+        } else {
+          dispatch(updateMessage(updatedGroups));
+          toast.success("Deleted successfully");
+        }
+      } catch (error) {
+        console.error("Delete Expense error:", error);
+        toast.error(`Delete Expense error: ${error}`);
       }
-      return group;
-    });
+    },
+    [groups, activeGroup, dispatch]
+  );
 
-    const indexCurrentGroup = updatedGroups.findIndex(
-      (group) => group.groupName === activeGroup
-    );
-
-    try {
-      const { error } = await supabase
-        .from("groups")
-        .update({
-          howSpent: updatedGroups[indexCurrentGroup].howSpent,
-          lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
-        })
-        .eq("groupName", activeGroup);
-
-      if (error) {
-        toast.error("Delete failed. Please try again.");
-      } else {
-        dispatch(updateMessage(updatedGroups));
-        toast.success("Deleted successfully");
-      }
-    } catch (error) {
-      console.error("Delete Expense error:", error);
-      toast.error(`Delete Expense error: ${error}`);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     await handleDelete(deleteItemId);
     setShowConfirmation(false);
     setDeleteItemId("");
-  };
+  }, [handleDelete, deleteItemId]);
 
   return (
     <div className="container">
@@ -99,7 +113,7 @@ const GroupActiveState = () => {
         </div>
       )}
       <ul className="list-group mt-2 mx-2">
-        {activeGroupData.howSpent.map((data) => (
+        {activeGroupData?.howSpent.map((data) => (
           <li key={data.id} className="list-group-item message-container">
             <ListGroupCard
               data={data}

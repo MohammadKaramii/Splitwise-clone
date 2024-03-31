@@ -11,7 +11,7 @@ const FriendActiveState: React.FC = () => {
   const dispatch = useDispatch();
   const groups = useSelector((state: RootState) => state.dummyData.groups);
   const user = useSelector(selectUserData);
-  const activeFriend= user.activeFriend;
+  const activeFriend = user.activeFriend;
   const [totalAmountFriend, setTotalAmountFriend] = useState<TotalAmounts>({});
   const allZero = Object.values(totalAmountFriend).every(
     (value) => value === 0

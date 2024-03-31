@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   setSignInUserData,
@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../../supabase";
 import { setGroupData } from "../../redux/reducers/dummyDataSlice";
 import toast from "react-hot-toast";
+
 interface Group {
   id: string;
   groupName: string;
@@ -18,64 +19,72 @@ const LeftComponent = () => {
   const userData = useSelector(selectUserData);
   const dispatch = useDispatch();
   const [groups, setGroups] = useState<Group[]>([]);
-
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedFriend, setSelectedFriend] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        const { data: groupsData, error } = await supabase
-          .from("groups")
-          .select("*")
-          .eq("userId", userData.id);
+  const fetchGroups = useCallback(async () => {
+    try {
+      const { data: groupsData, error } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("userId", userData.id);
 
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        setGroups(groupsData || []);
-        dispatch(setGroupData(groupsData));
-      } catch (error) {
-        console.error("Error fetching groups:", error);
+      if (error) {
+        throw new Error(error.message);
       }
-    };
 
+      setGroups(groupsData || []);
+      dispatch(setGroupData(groupsData));
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  }, [userData.id]);
+
+  useEffect(() => {
     fetchGroups();
-  }, [userData.id, groups]);
+  }, [fetchGroups]);
 
-  const friends = groups.map((group: Group) => group.friends);
-  const uniqueFriends = Array.from(new Set(friends.flat()));
-  const handleClickOnGroup = (groupName: string) => {
-    dispatch(
-      setSignInUserData({
-        activeGroup: groupName,
-        activeFriend: null,
-      })
-    );
-    setSelectedGroup(groupName);
-    setSelectedFriend("");
-  };
+  const uniqueFriends = useMemo(() => {
+    const friends = groups.map((group) => group.friends);
+    return Array.from(new Set(friends.flat()));
+  }, [groups]);
 
-  const handleClickOnFriends = (friend: string) => {
-    dispatch(
-      setSignInUserData({
-        activeFriend: friend,
-        activeGroup: null,
-      })
-    );
-    setSelectedFriend(friend);
-    setSelectedGroup("");
-  };
+  const handleClickOnGroup = useCallback(
+    (groupName: string) => {
+      dispatch(
+        setSignInUserData({
+          activeGroup: groupName,
+          activeFriend: null,
+        })
+      );
+      setSelectedGroup(groupName);
+      setSelectedFriend("");
+    },
+    [dispatch]
+  );
 
-  const handleDeleteGroup = (groupId: string) => {
+  const handleClickOnFriends = useCallback(
+    (friend: string) => {
+      dispatch(
+        setSignInUserData({
+          activeFriend: friend,
+          activeGroup: null,
+        })
+      );
+      setSelectedFriend(friend);
+      setSelectedGroup("");
+    },
+    [dispatch]
+  );
+
+  const handleDeleteGroup = useCallback((groupId: string) => {
     setShowConfirmation(true);
     setGroupToDelete(groupId);
-  };
+  }, []);
 
-  const confirmDeleteGroup = async () => {
+  const confirmDeleteGroup = useCallback(async () => {
     try {
       if (groupToDelete) {
         const { error } = await supabase
@@ -101,13 +110,12 @@ const LeftComponent = () => {
       console.error("Error deleting group:", error);
       toast.error(`Error deleting group:, ${error}`);
     }
-  };
+  }, [groupToDelete, groups, dispatch]);
 
-  const cancelDeleteGroup = () => {
+  const cancelDeleteGroup = useCallback(() => {
     setGroupToDelete(null);
     setShowConfirmation(false);
-  };
-
+  }, []);
   return (
     <div className="right-contianer p-3">
       {showConfirmation && (

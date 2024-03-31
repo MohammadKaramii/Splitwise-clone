@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { setGroupData } from "../../redux/reducers/dummyDataSlice";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
@@ -24,36 +24,37 @@ const AddGroup = () => {
     state.dummyData.groups.filter((group) => group.userId === userData.id)
   );
 
-  const handleMemberChange = (index: number, field: string, value: string) => {
-    const updatedMembers = [...members];
-    if (field === "name") {
-      updatedMembers[index].name = value;
-    } else if (field === "email") {
-      updatedMembers[index].email = value;
-    }
-    setMembers(updatedMembers);
-  };
+  const handleMemberChange = useCallback(
+    (index: number, field: string, value: string) => {
+      setMembers((prevMembers) => {
+        const updatedMembers = [...prevMembers];
+        if (field === "name") {
+          updatedMembers[index].name = value;
+        } else if (field === "email") {
+          updatedMembers[index].email = value;
+        }
+        return updatedMembers;
+      });
+    },
+    []
+  );
 
-  const handleRemoveMember = (index: number) => {
-    const updatedMembers = [...members];
-    updatedMembers.splice(index, 1);
-    setMembers(updatedMembers);
-  };
+  const handleRemoveMember = useCallback((index: number) => {
+    setMembers((prevMembers) => {
+      const updatedMembers = [...prevMembers];
+      updatedMembers.splice(index, 1);
+      return updatedMembers;
+    });
+  }, []);
 
-  const handleAddMember = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const updatedMembers = [
-      ...members,
-      {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-      },
-    ];
-    setMembers(updatedMembers);
-  };
+  const handleAddMember = useCallback(() => {
+    setMembers((prevMembers) => [
+      ...prevMembers,
+      { id: userData.id, name: "", email: "" },
+    ]);
+  }, [userData.id]);
 
-  const saveGroup = async () => {
+  const saveGroup = useCallback(async () => {
     const newGroup = {
       id: uid(),
       groupName: groupName,
@@ -76,11 +77,16 @@ const AddGroup = () => {
       dispatch(setGroupData([...currentGroups, newGroup]));
       navigate("/mainpage");
     }
-  };
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    saveGroup();
-  };
+  }, [dispatch, groupName, members, userData.id, currentGroups, navigate]);
+
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      saveGroup();
+    },
+    [saveGroup]
+  );
+
   return (
     <>
       <div className="toppad"></div>

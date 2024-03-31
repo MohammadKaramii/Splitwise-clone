@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
@@ -17,13 +17,11 @@ interface ListState {
   };
   members: string[];
   totalAmount: number;
-  paidStatus: { [key: string]: number | undefined }[];
+  paidStatus: { whoPaid: string; howMuchPaid: number }[];
 }
 
 const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
   const user = useSelector((state: RootState) => state.userData.user);
-  const activeGroupName = user.activeGroup;
-
   const [listActive, setListActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [description, setDescription] = useState(data.message);
@@ -33,113 +31,122 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
   const [updateMembers, setUpdateMembers] = useState(members);
   const [timeSpent, setTimeSpent] = useState(data.createdAt);
 
-  const handleEdit = () => {
-    setEditMode(!editMode);
-  };
+  const handleEdit = useCallback(() => {
+    setEditMode((prevMode) => !prevMode);
+  }, []);
 
-  const handleMemberRemove = (event: any, member: string) => {
-    event.preventDefault();
-    const updatedList = updateMembers.filter((m) => m !== member);
-    if (updatedList.length === 0) {
-      toast.error("At least one member must remain");
-    } else {
-      setUpdateMembers(updatedList);
-      toast.success("Member removed successfully");
-    }
-  };
-  const addClassName = () => {
-    setListActive(!listActive);
-  };
+  const handleMemberRemove = useCallback(
+    (event: any, member: string) => {
+      event.preventDefault();
+      const updatedList = updateMembers.filter((m) => m !== member);
+      if (updatedList.length === 0) {
+        toast.error("At least one member must remain");
+      } else {
+        setUpdateMembers(updatedList);
+        toast.success("Member removed successfully");
+      }
+    },
+    [updateMembers]
+  );
 
-  const handleTime = (time: string) => {
+  const addClassName = useCallback(() => {
+    setListActive((prevActive) => !prevActive);
+  }, []);
+
+  const handleTime = useCallback((time: string) => {
     const month = new Date(time)
       .toLocaleString("en-US", { month: "long" })
       .slice(0, 3);
     const day = new Date(time).getDate();
     const year = time.slice(0, 4);
     return { month, day, year };
-  };
-
-  const paidMembers = paidStatus?.reduce((acc: string[], member) => {
-    const person = Object.entries(member);
-    acc.push(String(person[0][0]));
-    return acc;
   }, []);
-  const share = (cost / (members.length + 1)).toFixed(2);
 
-  const handleSubmitEdit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const share = useMemo(() => cost / (members.length + 1), [cost, members]);
 
-    if (description === "" || description?.trim() === "") {
-      toast.error("Description name can't be blank");
-      return;
-    }
+  const handleSubmitEdit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
 
-    if (cost <= 0) {
-      toast.error("cost can't be zero or negative");
-      return;
-    }
-
-    if (updateMembers.length === 0) {
-      toast.error("At least one member must remain");
-      return;
-    }
-
-    const newHowSpent = {
-      message: description,
-      cost: cost,
-      id: uid(),
-      createdAt: new Date().toISOString(),
-      whoPaid: data.whoPaid,
-      sharedWith: updateMembers,
-    };
-    setTimeSpent(newHowSpent.createdAt);
-
-    const updatedGroups = groups.map((group) => {
-      if (group.groupName === activeGroupName) {
-        const updatedGroup = { ...group };
-        const allExpenses = updatedGroup.howSpent?.filter(
-          (howSpent) => howSpent.id !== data.id
-        );
-
-        updatedGroup.howSpent = [newHowSpent, ...allExpenses];
-        updatedGroup.lastUpdate = newHowSpent.createdAt;
-        return updatedGroup;
+      if (description === "" || description?.trim() === "") {
+        toast.error("Description name can't be blank");
+        return;
       }
-      return group;
-    });
 
-    const indexCurrentGroup = updatedGroups.findIndex(
-      (item) => item.groupName === activeGroupName
-    );
-
-    try {
-      const { error } = await supabase
-        .from("groups")
-        .update({
-          howSpent: updatedGroups[indexCurrentGroup].howSpent,
-          lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
-        })
-        .eq("groupName", activeGroupName);
-
-      if (error) {
-        toast.error("Update failed. Please try again.");
-      } else {
-        dispatch(updateMessage(updatedGroups));
-        setDescription(newHowSpent.message);
-        setCost(newHowSpent.cost);
-        toast.success("Updated successfully");
-        setEditMode(false);
+      if (cost <= 0) {
+        toast.error("Cost can't be zero or negative");
+        return;
       }
-    } catch (error) {
-      console.error("Update Expense error:", error);
-      toast.error(`Update Expense error: ${error}`);
 
-      return;
-    }
-  };
+      if (updateMembers.length === 0) {
+        toast.error("At least one member must remain");
+        return;
+      }
 
-  const mem = data.whoPaid === user.name ? members : [...members, "You"];
+      const newHowSpent = {
+        message: description,
+        cost: cost,
+        id: uid(),
+        createdAt: new Date().toISOString(),
+        whoPaid: data.whoPaid,
+        sharedWith: updateMembers,
+      };
+
+      setTimeSpent(newHowSpent.createdAt);
+
+      const updatedGroups = groups.map((group) =>
+        group.groupName === user.activeGroup
+          ? {
+              ...group,
+              howSpent: [
+                newHowSpent,
+                ...(group.howSpent || []).filter(
+                  (spent) => spent.id !== data.id
+                ),
+              ],
+              lastUpdate: newHowSpent.createdAt,
+            }
+          : group
+      );
+
+      const indexCurrentGroup = updatedGroups.findIndex(
+        (item) => item.groupName === user.activeGroup
+      );
+
+      try {
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            howSpent: updatedGroups[indexCurrentGroup].howSpent,
+            lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+          })
+          .eq("groupName", user.activeGroup);
+
+        if (error) {
+          toast.error("Update failed. Please try again.");
+        } else {
+          dispatch(updateMessage(updatedGroups));
+          setDescription(newHowSpent.message);
+          setCost(newHowSpent.cost);
+          toast.success("Updated successfully");
+          setEditMode(false);
+        }
+      } catch (error) {
+        console.error("Update Expense error:", error);
+        toast.error(`Update Expense error: ${error}`);
+      }
+    },
+    [description, cost, updateMembers, groups, data, user.activeGroup, dispatch]
+  );
+
+  const mem = useMemo(
+    () => (data.whoPaid === user.name ? members : [...members, "You"]),
+    [data.whoPaid, members, user.name]
+  );
+
+  
+
+
 
   return (
     <div className="list-box">
@@ -276,46 +283,45 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
                   index + 1
                 }-100px.png`;
                 return (
-                  <div className="mt-4" key={member}>
-                    <span>
-                      <img src={avatarLink} />
-                    </span>
-                    <span>
-                      <strong> {member}</strong>{" "}
-                      <span className="status-right px-1">owes</span>
-                      {paidMembers ? (
-                        !paidMembers.includes(member) ? (
+                  <>
+                    <div className="mt-4" key={member}>
+                      <span>
+                        <img src={avatarLink} />
+                      </span>
+                      <span>
+                        <strong> {member}</strong>{" "}
+                        <span className="status-right px-1">owes</span>
+                        {data.sharedWith.includes(member) ||
+                        member === "You" ? (
                           <strong>${share}</strong>
                         ) : (
                           <strong>$0.00</strong>
-                        )
-                      ) : (
-                        <strong>${share}</strong>
-                      )}
-                    </span>
-                  </div>
+                        )}
+                      </span>
+                    </div>
+                  </>
                 );
               })}
           </div>
         </div>
         <ul className="paid-list">
-          {paidMembers && (
+          {paidStatus ? (
             <>
               <h5>Transactions</h5>
-              {paidMembers.map((member) => {
-                return (
-                  <li className="paid-person-container" key={member}>
+              {paidStatus.map((member) => {
+                return data.sharedWith.includes(member.whoPaid) ? (
+                  <li className="paid-person-container" key={member.whoPaid}>
                     <i className="fa-regular fa-circle-check mx-1"></i>
                     <span>
-                      <strong> {member}</strong>
+                      <strong> {member.whoPaid}</strong>
                     </span>
                     <span className=""> paid his share of </span>
-                    <strong>${share}</strong>
+                    <strong>${member.howMuchPaid}</strong>
                   </li>
-                );
+                ) : null;
               })}
             </>
-          )}
+          ) : null}
         </ul>
       </div>
     </div>
