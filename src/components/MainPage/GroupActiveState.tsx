@@ -21,7 +21,7 @@ const GroupActiveState = () => {
   const totalAmount = useMemo(
     () =>
       activeGroupData
-        ? activeGroupData.howSpent.reduce((sum, item) => sum + item.cost, 0)
+        ? activeGroupData?.howSpent?.reduce((sum, item) => sum + item.cost, 0)
         : 0,
     [activeGroupData]
   );
@@ -113,7 +113,7 @@ const GroupActiveState = () => {
         </div>
       )}
       <ul className="list-group mt-2 mx-2">
-        {activeGroupData?.howSpent.map((data) => (
+        {activeGroupData?.howSpent?.map((data) => (
           <li key={data.id} className="list-group-item message-container">
             <ListGroupCard
               data={data}

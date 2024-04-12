@@ -27,6 +27,10 @@ const FriendActiveState: React.FC = () => {
     return { month, day };
   };
 
+  const paids = useSelector((state: RootState) => state.paids.paids);
+  const paidToCurrentUser = paids?.find(
+    (paid) => paid.toWho === user.name
+  );
   const calculateTotalAmountFriend = () => {
     if (!groups || !activeFriend) {
       return {};
@@ -34,7 +38,7 @@ const FriendActiveState: React.FC = () => {
 
     const totalAmounts: TotalAmounts = {};
     groups.forEach((group) => {
-      const groupTotalAmount = group.howSpent
+      let groupTotalAmount = group.howSpent
         ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
         .reduce((sum, item) => {
           const shareAmount = item.cost / (item.sharedWith.length + 1);
@@ -45,13 +49,21 @@ const FriendActiveState: React.FC = () => {
             : sum;
         }, 0);
 
-      totalAmounts[group.groupName] = Number(
+      if(paidToCurrentUser && activeFriend === paidToCurrentUser.whoPaid){
+        groupTotalAmount += paidToCurrentUser.howMuchPaid
+      }
+      
+        totalAmounts[group.groupName] = Number(
         groupTotalAmount ? groupTotalAmount.toFixed(2) : 0
       );
     });
 
     return totalAmounts;
   };
+
+
+
+  
 
   useEffect(() => {
     const totalAmountWithFriend = calculateTotalAmountFriend();

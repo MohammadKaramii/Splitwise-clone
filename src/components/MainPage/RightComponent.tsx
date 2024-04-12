@@ -13,6 +13,7 @@ const RightComponent = () => {
     () => groups.find((group) => group.groupName === activeGroupName),
     [groups, activeGroupName]
   );
+
   const friends = activeGroup ? activeGroup.friends : [];
   const totalAmount = useSelector((state: RootState) => state.totalAmonut);
   const dispatch = useDispatch();
@@ -24,24 +25,24 @@ const RightComponent = () => {
   const [selectedFriend, setSelectedFriend] = useState("");
   const [friend, setFriend] = useState("");
   const [paids, setPaids] = useState<any>(
-    activeGroup?.paid ? activeGroup.paid : []
+    activeGroup?.paid ? activeGroup.paid : null
   );
-  dispatch(setAddPayment(paids))
-
-console.log(paids);
-
-
+  dispatch(setAddPayment(paids));
 
   const calculateTotalAmount = useCallback(
     (whoPaid: string) => {
       if (!activeGroup) {
         return 0;
       }
+      const paidToCurrentUser = paids?.filter((paid) => paid.toWho === whoPaid);
+      const currentUserPaid = paids?.filter((paid) => paid.whoPaid === whoPaid);
 
-      const totalAmount = activeGroup.howSpent?.reduce((sum, item) => {
+      let totalAmount = activeGroup.howSpent?.reduce((sum, item) => {
         const shouldIncludeUser =
           whoPaid === user.name && item.whoPaid !== user.name;
-        const shareAmount = item.cost / (item.sharedWith.length + 1);
+        const shareAmount = Number(
+          (item.cost / (item.sharedWith.length + 1)).toFixed(2)
+        );
 
         if (item.whoPaid === whoPaid) {
           return sum + (item.cost - shareAmount);
@@ -53,16 +54,21 @@ console.log(paids);
         return sum;
       }, 0);
 
-      const totalForWhoPaid = paids
-        .filter((payment) => payment.whoPaid === whoPaid)
-        .reduce((total, payment) => total + payment.howMuchPaid, 0);
+      if (paidToCurrentUser) {
+        totalAmount -= paidToCurrentUser.reduce(
+          (total, paid) => total + paid.howMuchPaid,
+          0
+        );
+      }
 
-      return Number(
-        (totalAmount < 0
-          ? totalAmount + totalForWhoPaid
-          : totalAmount - totalForWhoPaid
-        ).toFixed(2)
-      );
+      if (currentUserPaid) {
+        totalAmount += currentUserPaid.reduce(
+          (total, paid) => total + paid.howMuchPaid,
+          0
+        );
+      }
+
+      return totalAmount;
     },
     [activeGroup, paids, user.name]
   );
@@ -91,18 +97,21 @@ console.log(paids);
           : sum;
       }, 0);
 
-      const totalForSpecificPayment = paids
-        .filter(
+      const demands = paids
+        ?.filter(
           (payment) =>
             payment.whoPaid === selectedFriend && payment.toWho === friend
         )
         .reduce((total, payment) => total + payment.howMuchPaid, 0);
 
-      return Number(
-        totalAmounts < 0
-          ? totalAmounts + totalForSpecificPayment
-          : totalAmounts - totalForSpecificPayment
-      );
+      const debts = paids
+        ?.filter(
+          (payment) =>
+            payment.whoPaid === friend && payment.toWho === selectedFriend
+        )
+        .reduce((total, payment) => total + payment.howMuchPaid, 0);
+
+      return Number(totalAmounts + demands - debts).toFixed(2);
     },
     [activeGroup, selectedFriend, user.name, paids]
   );
@@ -119,39 +128,42 @@ console.log(paids);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const addPaid = (newPayment) => {
-    if (paids.length === 0) {
-      setPaids([...paids, newPayment]);
-    } else {
-      let foundMatch = false;
-      const updatedPaid = paids.map((paid) => {
-        if (
-          paid.whoPaid === newPayment.whoPaid &&
-          paid.toWho === newPayment.toWho
-        ) {
-          foundMatch = true;
-          return {
-            ...paid,
-            howMuchPaid: paid.howMuchPaid + newPayment.howMuchPaid,
-          };
-        }
-        return paid;
-      });
-
-      if (!foundMatch) {
-        setPaids([...updatedPaid, newPayment]);
+  const addPaid = useCallback(
+    (newPayment) => {
+      if (paids.length === 0) {
+        setPaids([...paids, newPayment]);
       } else {
-        setPaids(updatedPaid);
+        let foundMatch = false;
+        const updatedPaid = paids.map((paid) => {
+          if (
+            paid.whoPaid === newPayment.whoPaid &&
+            paid.toWho === newPayment.toWho
+          ) {
+            foundMatch = true;
+            return {
+              ...paid,
+              howMuchPaid: paid.howMuchPaid + newPayment.howMuchPaid,
+            };
+          }
+          return paid;
+        });
+
+        if (!foundMatch) {
+          setPaids([...updatedPaid, newPayment]);
+        } else {
+          setPaids(updatedPaid);
+        }
       }
-    }
-  };
+    },
+    [paids]
+  );
 
   const handleSettleMessage = (member: string, selectedFriend: string) => {
     setFriend(member);
-    if (calculateTotalAmountFriend(member) < 0) {
+    if (Number(calculateTotalAmountFriend(member)) < 0) {
       setSettleModal(true);
-      setHowMuchSettle(Math.abs(calculateTotalAmountFriend(member)));
-    } else if (calculateTotalAmountFriend(member) > 0) {
+      setHowMuchSettle(Math.abs(Number(calculateTotalAmountFriend(member))));
+    } else if (Number(calculateTotalAmountFriend(member)) > 0) {
       toast.error(
         `${member === user.name ? "You" : member} owes ${
           selectedFriend === user.name ? "You" : selectedFriend
@@ -166,60 +178,60 @@ console.log(paids);
     }
   };
 
-  const handleSettleUp = (e) => {
-    e.preventDefault();
-    const newPayment = {
-      whoPaid: selectedFriend,
-      howMuchPaid: settleAmount,
-      toWho: friend,
-    };
+  const handleSettleUp = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const newPayment = {
+        whoPaid: selectedFriend,
+        howMuchPaid: settleAmount,
+        toWho: friend,
+      };
 
-    addPaid(newPayment);
+      addPaid(newPayment);
 
-    const updatedGroups = groups.map((group) => {
-      if (group.groupName === activeGroupName) {
-        const updatedGroup = {
-          ...group,
-          paid: paids,
-        };
-        return updatedGroup;
-      }
-      return group;
-    });
-
-    const indexCurrentGroup = updatedGroups.findIndex(
-      (item) => item.groupName === activeGroupName
-    );
-
-    const updatePaids = async () => {
       const { error } = await supabase
         .from("groups")
         .update({
-          paid: updatedGroups[indexCurrentGroup]?.paid,
-          lastUpdate: updatedGroups[indexCurrentGroup]?.lastUpdate,
+          paid: paids,
         })
         .eq("groupName", activeGroupName);
 
       if (error) {
-        toast.error(`Error Adding data: ${error}`);
+        toast.error(`Error updating data: ${error}`);
       } else {
-        toast.success(`Data added successfully!`, {
+        toast.success(`Data updated successfully!`, {
           duration: 4000,
         });
       }
-    };
 
-    updatePaids();
-    dispatch(updateMessage(updatedGroups));
-    setSettleModal(false);
-    setSettleAmount(0);
-  };
+      const updatedGroups = groups.map((group) => {
+        if (group.groupName === activeGroupName) {
+          const updatedGroup = {
+            ...group,
+            paid: paids,
+          };
+          return updatedGroup;
+        }
+        return group;
+      });
 
+      dispatch(updateMessage(updatedGroups));
 
-
-
-
-
+      setSettleModal(false);
+      setSettleAmount(0);
+      console.log(paids, 3);
+    },
+    [
+      activeGroupName,
+      addPaid,
+      dispatch,
+      friend,
+      groups,
+      paids,
+      selectedFriend,
+      settleAmount,
+    ]
+  );
 
   return (
     <>
@@ -319,7 +331,7 @@ console.log(paids);
                               }`}
                             >
                               <p className="lent-text">
-                                {calculateTotalAmountFriend(member) <= 0
+                                {Number(calculateTotalAmountFriend(member)) <= 0
                                   ? selectedFriend === user.name
                                     ? "You"
                                     : selectedFriend
@@ -328,23 +340,32 @@ console.log(paids);
                                   owes{" "}
                                   <span
                                     className={` ${
-                                      calculateTotalAmountFriend(member) > 0
+                                      Number(
+                                        calculateTotalAmountFriend(member)
+                                      ) > 0
                                         ? "lent-you"
-                                        : calculateTotalAmountFriend(member) < 0
+                                        : Number(
+                                            calculateTotalAmountFriend(member)
+                                          ) < 0
                                         ? "you-lent"
                                         : "price-zero"
                                     }`}
                                   >
-                                    {calculateTotalAmountFriend(member) === 0
+                                    {Number(
+                                      calculateTotalAmountFriend(member)
+                                    ) === 0
                                       ? "nothing"
                                       : `$${Math.abs(
-                                          calculateTotalAmountFriend(member)
+                                          Number(
+                                            calculateTotalAmountFriend(member)
+                                          )
                                         )}`}
                                   </span>
                                 </strong>{" "}
                                 to{" "}
                                 <strong>
-                                  {calculateTotalAmountFriend(member) > 0
+                                  {Number(calculateTotalAmountFriend(member)) >
+                                  0
                                     ? selectedFriend === user.name
                                       ? "You"
                                       : selectedFriend
@@ -365,32 +386,40 @@ console.log(paids);
                         {selectedFriend !== user.name && (
                           <li className="list-group-item justify-content-between">
                             <p className="lent-text">
-                              {calculateTotalAmountFriend(user.name) <= 0
+                              {Number(calculateTotalAmountFriend(user.name)) <=
+                              0
                                 ? selectedFriend
                                 : "You"}{" "}
                               <strong>
                                 owes{" "}
                                 <span
                                   className={` ${
-                                    calculateTotalAmountFriend(user.name) > 0
+                                    Number(
+                                      calculateTotalAmountFriend(user.name)
+                                    ) > 0
                                       ? "lent-you"
-                                      : calculateTotalAmountFriend(user.name) <
-                                        0
+                                      : Number(
+                                          calculateTotalAmountFriend(user.name)
+                                        ) < 0
                                       ? "you-lent"
                                       : "price-zero"
                                   }`}
                                 >
-                                  {calculateTotalAmountFriend(user.name) === 0
+                                  {Number(
+                                    calculateTotalAmountFriend(user.name)
+                                  ) === 0
                                     ? "nothing"
                                     : `$${Math.abs(
-                                        calculateTotalAmountFriend(user.name)
+                                        Number(
+                                          calculateTotalAmountFriend(user.name)
+                                        )
                                       )}`}
                                 </span>
                               </strong>{" "}
                               to{" "}
                               <strong>
-                                {calculateTotalAmountFriend(user.name) > 0 &&
-                                selectedFriend !== user.name
+                                {Number(calculateTotalAmountFriend(user.name)) >
+                                  0 && selectedFriend !== user.name
                                   ? selectedFriend
                                   : "You"}
                               </strong>

@@ -62,7 +62,7 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
     return { month, day, year };
   }, []);
 
-  const share = useMemo(() => cost / (members.length + 1), [cost, members]);
+  const share = useMemo(() => cost / (members.length + 1), [cost, members]).toFixed(2);
 
   const handleSubmitEdit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {

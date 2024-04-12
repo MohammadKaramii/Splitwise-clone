@@ -2,7 +2,11 @@
 import { createSlice } from '@reduxjs/toolkit';
   
 const initialState = {
-    paids: [],
+    paids: [{
+        whoPaid: "",
+        howMuchPaid: 0,
+        toWho: "",
+      }],
   };
   
 

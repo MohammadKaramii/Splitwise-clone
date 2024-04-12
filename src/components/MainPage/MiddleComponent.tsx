@@ -5,20 +5,21 @@ import FriendActiveSatate from "./FriendActiveState";
 import { Link } from "react-router-dom";
 import { RootState } from "../../redux/store";
 import toast from "react-hot-toast";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 const MiddleComponent = () => {
   const user = useSelector((state: RootState) => state.userData.user);
   const groups = useSelector((state: RootState) => state.dummyData.groups);
   const paids = useSelector((state: RootState) => state.paids.paids);
+  const paidToCurrentUser = paids?.filter((paid) => paid.toWho === user.name);
+  const currentUserPaid = paids?.filter((paid) => paid.whoPaid === user.name);
   const activeGroup = useMemo(
     () => groups.find((group) => group.groupName === user.activeGroup),
     [groups, user.activeGroup]
   );
 
-  console.log(paids);
-  
+  console.log(paids, 1);
   const totalAmount = useMemo(() => {
-    return (
+    let calculatedAmount =
       activeGroup?.howSpent?.reduce((sum, item) => {
         if (item.whoPaid === user.name) {
           return (
@@ -28,29 +29,38 @@ const MiddleComponent = () => {
             )
           );
         } else {
-          const paidToCurrentUser = paids.find(
-            (paid) => paid.toWho === user.name
+          return (
+            sum - Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
           );
-
-          if (paidToCurrentUser && item.whoPaid === paidToCurrentUser.whoPaid) {
-            console.log(paidToCurrentUser);
-            
-            
-            return (
-              sum -
-              Number((item.cost / (item.sharedWith.length + 1)).toFixed(2)) -
-              paidToCurrentUser.howMuchPaid
-            );
-          } else {
-            return (
-              sum -
-              Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
-            );
-          }
         }
-      }, 0) || 0
-    );
-  }, [activeGroup, user.name]);
+      }, 0) || 0;
+
+      if (paidToCurrentUser) {
+        
+        const sumAmount = paidToCurrentUser.reduce(
+          (total, paid) => total + paid.howMuchPaid,
+          0
+        );
+       
+        calculatedAmount >= 0
+          ? (calculatedAmount -= sumAmount)
+          : (calculatedAmount += sumAmount);
+      }
+
+      if (currentUserPaid) {
+        const sumAmount = currentUserPaid.reduce(
+          (total, paid) => total + paid.howMuchPaid,
+          0
+        );
+        
+        calculatedAmount <= 0
+          ? (calculatedAmount -= sumAmount)
+          : (calculatedAmount += sumAmount);
+      }
+
+      return calculatedAmount;
+  }, [activeGroup?.howSpent, paidToCurrentUser, currentUserPaid, user.name]);
+
 
   return (
     <section className="middle-component-container">
