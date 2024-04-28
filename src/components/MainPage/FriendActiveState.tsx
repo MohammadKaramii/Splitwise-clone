@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { RootState } from "../../redux/store";
@@ -26,17 +26,19 @@ const FriendActiveState: React.FC = () => {
     const day = new Date(timeUpdate).getDate();
     return { month, day };
   };
+  const paids = useSelector((state: RootState) => state.paids);
 
-  const paids = useSelector((state: RootState) => state.paids.paids);
-  const paidToCurrentUser = paids?.find(
-    (paid) => paid.toWho === user.name
-  );
-  const calculateTotalAmountFriend = () => {
+  const calculateTotalAmountFriend = useCallback(() => {
     if (!groups || !activeFriend) {
       return {};
     }
+  
+
+
 
     const totalAmounts: TotalAmounts = {};
+  
+    
     groups.forEach((group) => {
       let groupTotalAmount = group.howSpent
         ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
@@ -49,31 +51,33 @@ const FriendActiveState: React.FC = () => {
             : sum;
         }, 0);
 
-      if(paidToCurrentUser && activeFriend === paidToCurrentUser.whoPaid){
-        groupTotalAmount += paidToCurrentUser.howMuchPaid
-      }
-      
-        totalAmounts[group.groupName] = Number(
+
+      paids.forEach((paid) => {
+        if (paid.whoPaid === user.name && paid.groupName === group.groupName) {
+          groupTotalAmount -= paid.howMuchPaid;
+        } else if (paid.toWho === user.name && paid.groupName === group.groupName) {
+          groupTotalAmount += paid.howMuchPaid;
+        }
+      });
+      totalAmounts[group.groupName] = Number(
         groupTotalAmount ? groupTotalAmount.toFixed(2) : 0
       );
     });
 
     return totalAmounts;
-  };
-
-
-
-  
+  }, [activeFriend, groups, paids, user.name]);
 
   useEffect(() => {
     const totalAmountWithFriend = calculateTotalAmountFriend();
+
+    
     const totalAmount = Object.values(totalAmountWithFriend).reduce(
       (acc, value) => acc + value,
       0
     );
     setTotalAmountFriend(totalAmountWithFriend);
     dispatch(setTotalAmount(totalAmount));
-  }, [activeFriend]);
+  }, [activeFriend, calculateTotalAmountFriend, dispatch]);
 
   return (
     <>

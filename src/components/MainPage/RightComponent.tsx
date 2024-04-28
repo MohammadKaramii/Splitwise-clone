@@ -3,8 +3,8 @@ import { RootState } from "../../redux/store";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
-import { updateMessage } from "../../redux/reducers/dummyDataSlice";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
+
 const RightComponent = () => {
   const groups = useSelector((state: RootState) => state.dummyData.groups);
   const user = useSelector((state: RootState) => state.userData.user);
@@ -24,31 +24,38 @@ const RightComponent = () => {
   const [settleAmount, setSettleAmount] = useState(0);
   const [selectedFriend, setSelectedFriend] = useState("");
   const [friend, setFriend] = useState("");
-  const [paids, setPaids] = useState<any>(
-    activeGroup?.paid ? activeGroup.paid : null
-  );
-  dispatch(setAddPayment(paids));
+  // const [activeFriendPaids, setActiveFriendPaids] = useState([]);
+  const paids = useSelector((state: RootState) => state.paids);
+  const spents = useSelector((state: RootState) => state.spents);
+
+
 
   const calculateTotalAmount = useCallback(
     (whoPaid: string) => {
       if (!activeGroup) {
         return 0;
       }
-      const paidToCurrentUser = paids?.filter((paid) => paid.toWho === whoPaid);
-      const currentUserPaid = paids?.filter((paid) => paid.whoPaid === whoPaid);
+      const paidToCurrentUser = paids?.filter(
+        (paid) => paid.toWho === whoPaid && paid.groupName === activeGroupName
+      );
 
-      let totalAmount = activeGroup.howSpent?.reduce((sum, item) => {
+      
+      const currentUserPaid = paids?.filter(
+        (paid) => paid.whoPaid === whoPaid && paid.groupName === activeGroupName
+      );
+
+      let totalAmount = spents?.reduce((sum, item) => {
         const shouldIncludeUser =
           whoPaid === user.name && item.whoPaid !== user.name;
         const shareAmount = Number(
-          (item.cost / (item.sharedWith.length + 1)).toFixed(2)
+          (item.cost / (item.sharedWith?.length + 1)).toFixed(2)
         );
 
         if (item.whoPaid === whoPaid) {
           return sum + (item.cost - shareAmount);
         }
 
-        if (item.sharedWith.includes(whoPaid) || shouldIncludeUser) {
+        if (item.sharedWith?.includes(whoPaid) || shouldIncludeUser) {
           return sum - shareAmount;
         }
         return sum;
@@ -68,9 +75,9 @@ const RightComponent = () => {
         );
       }
 
-      return totalAmount;
+      return Number(totalAmount).toFixed(2);
     },
-    [activeGroup, paids, user.name]
+    [activeGroup, activeGroupName, paids, spents, user.name]
   );
 
   const calculateTotalAmountFriend = useCallback(
@@ -97,23 +104,30 @@ const RightComponent = () => {
           : sum;
       }, 0);
 
-      const demands = paids
-        ?.filter(
-          (payment) =>
-            payment.whoPaid === selectedFriend && payment.toWho === friend
-        )
-        .reduce((total, payment) => total + payment.howMuchPaid, 0);
+      const demands =
+        paids
+          ?.filter(
+            (payment) =>
+              payment.whoPaid === selectedFriend &&
+              payment.toWho === friend &&
+              payment.groupName === activeGroupName
+          )
+          .reduce((total, payment) => total + payment.howMuchPaid, 0) || 0;
 
-      const debts = paids
-        ?.filter(
-          (payment) =>
-            payment.whoPaid === friend && payment.toWho === selectedFriend
-        )
-        .reduce((total, payment) => total + payment.howMuchPaid, 0);
+      const debts =
+        paids
+          ?.filter(
+            (payment) =>
+              payment.whoPaid === friend &&
+              payment.toWho === selectedFriend &&
+              payment.groupName === activeGroupName
+          )
+          .reduce((total, payment) => total + payment.howMuchPaid, 0) || 0;
 
       return Number(totalAmounts + demands - debts).toFixed(2);
     },
-    [activeGroup, selectedFriend, user.name, paids]
+
+    [activeGroup?.howSpent, paids, selectedFriend, user.name, activeGroupName]
   );
 
   useEffect(() => {
@@ -127,36 +141,6 @@ const RightComponent = () => {
 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const addPaid = useCallback(
-    (newPayment) => {
-      if (paids.length === 0) {
-        setPaids([...paids, newPayment]);
-      } else {
-        let foundMatch = false;
-        const updatedPaid = paids.map((paid) => {
-          if (
-            paid.whoPaid === newPayment.whoPaid &&
-            paid.toWho === newPayment.toWho
-          ) {
-            foundMatch = true;
-            return {
-              ...paid,
-              howMuchPaid: paid.howMuchPaid + newPayment.howMuchPaid,
-            };
-          }
-          return paid;
-        });
-
-        if (!foundMatch) {
-          setPaids([...updatedPaid, newPayment]);
-        } else {
-          setPaids(updatedPaid);
-        }
-      }
-    },
-    [paids]
-  );
 
   const handleSettleMessage = (member: string, selectedFriend: string) => {
     setFriend(member);
@@ -181,55 +165,76 @@ const RightComponent = () => {
   const handleSettleUp = useCallback(
     async (e) => {
       e.preventDefault();
+
       const newPayment = {
         whoPaid: selectedFriend,
         howMuchPaid: settleAmount,
         toWho: friend,
+        groupName: activeGroupName,
       };
 
-      addPaid(newPayment);
+      const updatedPaids = (prevPaids) => {
+        if (prevPaids.length === 0) {
+          return [...prevPaids, newPayment];
+        } else {
+          const existingPaidIndex = prevPaids.findIndex(
+            (paid) =>
+              paid.whoPaid === newPayment.whoPaid &&
+              paid.toWho === newPayment.toWho &&
+              paid.groupName === newPayment.groupName
+          );
 
-      const { error } = await supabase
-        .from("groups")
-        .update({
-          paid: paids,
-        })
-        .eq("groupName", activeGroupName);
+          if (existingPaidIndex !== -1) {
+            return prevPaids?.map((paid, index) => {
+              if (index === existingPaidIndex) {
+                return {
+                  ...paid,
+                  howMuchPaid: paid.howMuchPaid + newPayment.howMuchPaid,
+                };
+              }
+              return paid;
+            });
+          } else {
+            return [...prevPaids, newPayment];
+          }
+        }
+      };
+  //     // setPaids(updatedPaids);
+  //  console.log(paids);
+   
+
+      const { error } = paids.length === 0
+        ? await supabase.from("myPaids").insert({
+            paids: updatedPaids(paids),
+            userId: user.id,
+          })
+        : await supabase
+            .from("myPaids")
+            .update({
+              paids: updatedPaids(paids),
+            })
+            .eq("userId", user.id);
 
       if (error) {
         toast.error(`Error updating data: ${error}`);
       } else {
+        dispatch(setAddPayment(updatedPaids(paids)));
         toast.success(`Data updated successfully!`, {
           duration: 4000,
         });
       }
 
-      const updatedGroups = groups.map((group) => {
-        if (group.groupName === activeGroupName) {
-          const updatedGroup = {
-            ...group,
-            paid: paids,
-          };
-          return updatedGroup;
-        }
-        return group;
-      });
-
-      dispatch(updateMessage(updatedGroups));
-
       setSettleModal(false);
       setSettleAmount(0);
-      console.log(paids, 3);
     },
     [
       activeGroupName,
-      addPaid,
-      dispatch,
-      friend,
-      groups,
-      paids,
       selectedFriend,
       settleAmount,
+      friend,
+      paids,
+      user.id,
+      dispatch,
     ]
   );
 

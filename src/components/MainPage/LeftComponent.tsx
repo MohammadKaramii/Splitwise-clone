@@ -8,6 +8,9 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../../supabase";
 import { setGroupData } from "../../redux/reducers/dummyDataSlice";
 import toast from "react-hot-toast";
+import { setSpents } from "../../redux/reducers/spentsSlice";
+import { RootState } from "../../redux/store";
+import { setAddPayment } from "../../redux/reducers/paidSlice";
 
 interface Group {
   id: string;
@@ -18,11 +21,19 @@ interface Group {
 const LeftComponent = () => {
   const userData = useSelector(selectUserData);
   const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.userData.user);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedFriend, setSelectedFriend] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
+  const activeGroup = useMemo(
+    () => groups.find((group) => group.groupName === user.activeGroup),
+    [groups, user.activeGroup]
+  );
+  useEffect(() => {
+    dispatch(setSpents(activeGroup?.howSpent));
+  }, [activeGroup?.howSpent, dispatch]);
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -40,11 +51,30 @@ const LeftComponent = () => {
     } catch (error) {
       console.error("Error fetching groups:", error);
     }
-  }, [userData.id]);
+  }, [dispatch, userData.id]);
+
+  const fetchPaids = useCallback(async () => {
+    try {
+      const { data: paids, error } = await supabase
+        .from("myPaids")
+        .select("*")
+        .eq("userId", userData.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      console.log(paids[0].paids);
+      dispatch(setAddPayment(paids[0].paids));
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  }, [dispatch, userData.id]);
 
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
+    fetchPaids();
+  }, [fetchGroups, fetchPaids]);
+
 
   const uniqueFriends = useMemo(() => {
     const friends = groups.map((group) => group.friends);

@@ -2,10 +2,8 @@ import React, { useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
-import { updateMessage } from "../../redux/reducers/dummyDataSlice";
-import { uid } from "uid";
 import toast from "react-hot-toast";
-
+import { setSpents } from "../../redux/reducers/spentsSlice";
 interface ListState {
   data: {
     message: string;
@@ -17,20 +15,18 @@ interface ListState {
   };
   members: string[];
   totalAmount: number;
-  paidStatus: { whoPaid: string; howMuchPaid: number }[];
 }
 
-const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
+const ListGroupCard = ({ data, members }: ListState) => {
   const user = useSelector((state: RootState) => state.userData.user);
   const [listActive, setListActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [description, setDescription] = useState(data.message);
-  const groups = useSelector((state: RootState) => state.dummyData.groups);
   const [cost, setCost] = useState(data.cost);
   const dispatch = useDispatch();
   const [updateMembers, setUpdateMembers] = useState(members);
   const [timeSpent, setTimeSpent] = useState(data.createdAt);
-
+  const spents = useSelector((state: RootState) => state.spents);
   const handleEdit = useCallback(() => {
     setEditMode((prevMode) => !prevMode);
   }, []);
@@ -58,11 +54,14 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
       .toLocaleString("en-US", { month: "long" })
       .slice(0, 3);
     const day = new Date(time).getDate();
-    const year = time.slice(0, 4);
+    const year = time?.slice(0, 4);
     return { month, day, year };
   }, []);
 
-  const share = useMemo(() => cost / (members.length + 1), [cost, members]).toFixed(2);
+  const share = useMemo(
+    () => cost / (members?.length + 1),
+    [cost, members]
+  ).toFixed(2);
 
   const handleSubmitEdit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -86,46 +85,40 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
       const newHowSpent = {
         message: description,
         cost: cost,
-        id: uid(),
-        createdAt: new Date().toISOString(),
+        id: data.id,
+        createdAt: data.createdAt ,
         whoPaid: data.whoPaid,
         sharedWith: updateMembers,
       };
 
-      setTimeSpent(newHowSpent.createdAt);
+      setTimeSpent(new Date().toISOString());
 
-      const updatedGroups = groups.map((group) =>
-        group.groupName === user.activeGroup
-          ? {
-              ...group,
-              howSpent: [
-                newHowSpent,
-                ...(group.howSpent || []).filter(
-                  (spent) => spent.id !== data.id
-                ),
-              ],
-              lastUpdate: newHowSpent.createdAt,
-            }
-          : group
-      );
 
-      const indexCurrentGroup = updatedGroups.findIndex(
-        (item) => item.groupName === user.activeGroup
-      );
+      const editSpent = (prevSpents) => {
+        const updatedSpents = (prevSpents || []).map((spent) => {
+          if (spent.id === data.id) {
+            return newHowSpent;
+          }
+          return spent;
+        });
+      
+        return updatedSpents;
+      };
 
+      
       try {
         const { error } = await supabase
           .from("groups")
           .update({
-            howSpent: updatedGroups[indexCurrentGroup].howSpent,
-            lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+            howSpent: editSpent(spents),
+            lastUpdate: new Date().toISOString(),
           })
           .eq("groupName", user.activeGroup);
 
         if (error) {
           toast.error("Update failed. Please try again.");
         } else {
-          dispatch(updateMessage(updatedGroups));
+          dispatch(setSpents(editSpent(spents)));
           setDescription(newHowSpent.message);
           setCost(newHowSpent.cost);
           toast.success("Updated successfully");
@@ -136,17 +129,13 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
         toast.error(`Update Expense error: ${error}`);
       }
     },
-    [description, cost, updateMembers, groups, data, user.activeGroup, dispatch]
+    [description, cost, updateMembers, data.id, data.createdAt, data.whoPaid, spents, user.activeGroup, dispatch]
   );
 
   const mem = useMemo(
     () => (data.whoPaid === user.name ? members : [...members, "You"]),
     [data.whoPaid, members, user.name]
   );
-
-  
-
-
 
   return (
     <div className="list-box">
@@ -283,46 +272,24 @@ const ListGroupCard = ({ data, members, paidStatus }: ListState) => {
                   index + 1
                 }-100px.png`;
                 return (
-                  <>
-                    <div className="mt-4" key={member}>
-                      <span>
-                        <img src={avatarLink} />
-                      </span>
-                      <span>
-                        <strong> {member}</strong>{" "}
-                        <span className="status-right px-1">owes</span>
-                        {data.sharedWith.includes(member) ||
-                        member === "You" ? (
-                          <strong>${share}</strong>
-                        ) : (
-                          <strong>$0.00</strong>
-                        )}
-                      </span>
-                    </div>
-                  </>
+                  <div className="mt-4" key={member}>
+                    <span>
+                      <img src={avatarLink} />
+                    </span>
+                    <span>
+                      <strong> {member}</strong>{" "}
+                      <span className="status-right px-1">owes</span>
+                      {data.sharedWith.includes(member) || member === "You" ? (
+                        <strong>${share}</strong>
+                      ) : (
+                        <strong>$0.00</strong>
+                      )}
+                    </span>
+                  </div>
                 );
               })}
           </div>
         </div>
-        <ul className="paid-list">
-          {paidStatus ? (
-            <>
-              <h5>Transactions</h5>
-              {paidStatus.map((member) => {
-                return data.sharedWith.includes(member.whoPaid) ? (
-                  <li className="paid-person-container" key={member.whoPaid}>
-                    <i className="fa-regular fa-circle-check mx-1"></i>
-                    <span>
-                      <strong> {member.whoPaid}</strong>
-                    </span>
-                    <span className=""> paid his share of </span>
-                    <strong>${member.howMuchPaid}</strong>
-                  </li>
-                ) : null;
-              })}
-            </>
-          ) : null}
-        </ul>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import "./MainPage.css";
-import { useSelector } from "react-redux";
+import { useSelector} from "react-redux";
 import GroupActiveState from "./GroupActiveState";
 import FriendActiveSatate from "./FriendActiveState";
 import { Link } from "react-router-dom";
@@ -8,29 +8,26 @@ import toast from "react-hot-toast";
 import { useMemo } from "react";
 const MiddleComponent = () => {
   const user = useSelector((state: RootState) => state.userData.user);
-  const groups = useSelector((state: RootState) => state.dummyData.groups);
-  const paids = useSelector((state: RootState) => state.paids.paids);
+  const paids = useSelector((state: RootState) => state.paids);
   const paidToCurrentUser = paids?.filter((paid) => paid.toWho === user.name);
   const currentUserPaid = paids?.filter((paid) => paid.whoPaid === user.name);
-  const activeGroup = useMemo(
-    () => groups.find((group) => group.groupName === user.activeGroup),
-    [groups, user.activeGroup]
-  );
+  const spents = useSelector((state: RootState) => state.spents);
 
-  console.log(paids, 1);
+
+
   const totalAmount = useMemo(() => {
     let calculatedAmount =
-      activeGroup?.howSpent?.reduce((sum, item) => {
+    spents?.reduce((sum, item) => {
         if (item.whoPaid === user.name) {
           return (
             sum +
             Number(
-              (item.cost - item.cost / (item.sharedWith.length + 1)).toFixed(2)
+              (item?.cost - item?.cost / (item.sharedWith?.length + 1)).toFixed(2)
             )
           );
         } else {
           return (
-            sum - Number((item.cost / (item.sharedWith.length + 1)).toFixed(2))
+            sum - Number((item?.cost / (item.sharedWith?.length + 1)).toFixed(2))
           );
         }
       }, 0) || 0;
@@ -59,7 +56,7 @@ const MiddleComponent = () => {
       }
 
       return calculatedAmount;
-  }, [activeGroup?.howSpent, paidToCurrentUser, currentUserPaid, user.name]);
+  }, [spents, paidToCurrentUser, currentUserPaid, user.name]);
 
 
   return (
