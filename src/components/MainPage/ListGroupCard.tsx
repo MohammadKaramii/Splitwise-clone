@@ -4,6 +4,9 @@ import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { setSpents } from "../../redux/reducers/spentsSlice";
+import Loading from "../Loading";
+import { updateGroup } from "../../redux/reducers/groupSlice";
+
 interface ListState {
   data: {
     message: string;
@@ -17,6 +20,12 @@ interface ListState {
   totalAmount: number;
 }
 
+interface Spent {
+  id: string;
+
+
+}
+
 const ListGroupCard = ({ data, members }: ListState) => {
   const user = useSelector((state: RootState) => state.userData.user);
   const [listActive, setListActive] = useState(false);
@@ -27,12 +36,20 @@ const ListGroupCard = ({ data, members }: ListState) => {
   const [updateMembers, setUpdateMembers] = useState(members);
   const [timeSpent, setTimeSpent] = useState(data.createdAt);
   const spents = useSelector((state: RootState) => state.spents);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState("");
+  const groups = useSelector((state: RootState) => state.groups.groups);
+
+  const activeGroupName = useSelector(
+    (state: RootState) => state.userData.user.activeGroup
+  );
   const handleEdit = useCallback(() => {
     setEditMode((prevMode) => !prevMode);
   }, []);
 
   const handleMemberRemove = useCallback(
-    (event: any, member: string) => {
+    (event: React.MouseEvent<HTMLButtonElement>, member: string) => {
       event.preventDefault();
       const updatedList = updateMembers.filter((m) => m !== member);
       if (updatedList.length === 0) {
@@ -66,7 +83,7 @@ const ListGroupCard = ({ data, members }: ListState) => {
   const handleSubmitEdit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-
+      setIsLoading(true);
       if (description === "" || description?.trim() === "") {
         toast.error("Description name can't be blank");
         return;
@@ -86,26 +103,36 @@ const ListGroupCard = ({ data, members }: ListState) => {
         message: description,
         cost: cost,
         id: data.id,
-        createdAt: data.createdAt ,
+        createdAt: data.createdAt,
         whoPaid: data.whoPaid,
         sharedWith: updateMembers,
       };
 
       setTimeSpent(new Date().toISOString());
 
-
-      const editSpent = (prevSpents) => {
-        const updatedSpents = (prevSpents || []).map((spent) => {
+      const editSpent = (prevSpents: Spent[]) => {
+        const updatedSpents = (prevSpents || []).map((spent: Spent) => {
           if (spent.id === data.id) {
             return newHowSpent;
           }
           return spent;
         });
-      
+
         return updatedSpents;
       };
 
-      
+      const updatedGroups = groups.map((group) => {
+        if (group.groupName === activeGroupName) {
+          const updatedGroup = {
+            ...group,
+            howSpent: editSpent(spents),
+          };
+          return updatedGroup;
+        }
+        return group;
+      });
+      dispatch(updateGroup(updatedGroups));
+
       try {
         const { error } = await supabase
           .from("groups")
@@ -113,7 +140,8 @@ const ListGroupCard = ({ data, members }: ListState) => {
             howSpent: editSpent(spents),
             lastUpdate: new Date().toISOString(),
           })
-          .eq("groupName", user.activeGroup);
+          .eq("groupName", user.activeGroup)
+          .eq("userId", user.id);
 
         if (error) {
           toast.error("Update failed. Please try again.");
@@ -127,56 +155,173 @@ const ListGroupCard = ({ data, members }: ListState) => {
       } catch (error) {
         console.error("Update Expense error:", error);
         toast.error(`Update Expense error: ${error}`);
+      } finally {
+        setIsLoading(false);
       }
     },
-    [description, cost, updateMembers, data.id, data.createdAt, data.whoPaid, spents, user.activeGroup, dispatch]
+    [
+      description,
+      cost,
+      updateMembers,
+      data.id,
+      data.createdAt,
+      data.whoPaid,
+      groups,
+      dispatch,
+      activeGroupName,
+      spents,
+      user.activeGroup,
+      user.id,
+    ]
   );
+  const handleDelete = useCallback(
+    async (id: string) => {
+      setIsLoading(true);
+      const deleteSpent = (prevSpents: Spent[]) => {
+        if (!prevSpents) {
+          return [];
+        } else {
+          const spentIndexToDelete = prevSpents.findIndex(
+            (spent) => spent.id === id
+          );
+          if (spentIndexToDelete !== -1) {
+            return prevSpents.filter(
+              (spent, index) => index !== spentIndexToDelete
+            );
+          } else {
+            return prevSpents;
+          }
+        }
+      };
 
+      try {
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            howSpent: deleteSpent(spents),
+            lastUpdate: new Date().toISOString(),
+          })
+          .eq("groupName", activeGroupName)
+          .eq("userId", user.id);
+
+        if (error) {
+          toast.error("Delete failed. Please try again.");
+        } else {
+          dispatch(setSpents(deleteSpent(spents)));
+          toast.success("Deleted successfully");
+        }
+      } catch (error) {
+        console.error("Delete Expense error:", error);
+        toast.error(`Delete Expense error: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [activeGroupName, dispatch, spents, user.id]
+  );
   const mem = useMemo(
     () => (data.whoPaid === user.name ? members : [...members, "You"]),
     [data.whoPaid, members, user.name]
   );
+  const handleDeleteConfirmation = useCallback((id: string) => {
+    setShowConfirmation(true);
+    setDeleteItemId(id);
+  }, []);
+
+  const handleDeleteCancel = useCallback(() => {
+    setShowConfirmation(false);
+    setDeleteItemId("");
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    handleDelete(deleteItemId);
+    setShowConfirmation(false);
+    setDeleteItemId("");
+  }, [handleDelete, deleteItemId]);
 
   return (
     <div className="list-box">
-      <div className="list-data-container" onClick={addClassName}>
-        <div className="row message-date">
-          <div className="col-2 mt-2 date">
-            <p>{handleTime(timeSpent).month}</p>
-            <p>{handleTime(timeSpent).day}</p>
-          </div>
-          <div className="col msg-container">
-            <img src="https://s3.amazonaws.com/splitwise/uploads/category/icon/square_v2/uncategorized/general@2x.png" />
-            <span> {description}</span>
+      {isLoading && <Loading />}
+      {showConfirmation && (
+        <div className="confirmation-dialog alert alert-danger mt-3 p-3">
+          <p className="m-0">Are you sure you want to delete this expense?</p>
+          <div className="mt-2">
+            <button
+              className="btn btn-secondary m-1"
+              onClick={handleDeleteCancel}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger m-1"
+              onClick={handleDeleteConfirm}
+            >
+              Confirm
+            </button>
           </div>
         </div>
+      )}
+      <div className="container">
+        <div className="d-grid row">
+          <div className="list-data-container col" onClick={addClassName}>
+            <div className="row message-date col-6">
+              <div className="col-1 mt-2 date">
+                <p>{handleTime(timeSpent).month}</p>
+                <p>{handleTime(timeSpent).day}</p>
+              </div>
+              <div className="col-4 msg-container">
+                <img
+                  src="https://s3.amazonaws.com/splitwise/uploads/category/icon/square_v2/uncategorized/general@2x.png"
+                  className="icon"
+                />
+              </div>
+              <span className="col-4 description">{description}</span>
+            </div>
 
-        <div className="spent-status">
-          <div>
-            <p>{data.whoPaid === user.name ? "You" : data.whoPaid} Paid</p>
-            <strong>${cost}</strong>
-          </div>
-          <div className={data.whoPaid === user.name ? "lent-you" : "you-lent"}>
-            <p>
-              {data.whoPaid === user.name
-                ? "You lent"
-                : `${data.whoPaid} lent you`}{" "}
-            </p>
-            <strong>
-              $
-              {data.whoPaid === user.name
-                ? (cost - cost / (members.length + 1)).toFixed(2)
-                : (cost / (members.length + 1)).toFixed(2)}
-            </strong>
+            <div className="spent-status col-5">
+              <div className="aaaa col-5">
+                <p>{data.whoPaid === user.name ? "You" : data.whoPaid} Paid</p>
+                <strong>${cost}</strong>
+              </div>
+              <div
+                className={`col-5 bbbb ${
+                  data.whoPaid === user.name ? "lent-you" : "you-lent"
+                }`}
+              >
+                <p>
+                  {data.whoPaid === user.name
+                    ? "You lent"
+                    : `${data.whoPaid} lent you`}
+                </p>
+                <strong>
+                  $
+                  {data.whoPaid === user.name
+                    ? (cost - cost / (members.length + 1)).toFixed(2)
+                    : (cost / (members.length + 1)).toFixed(2)}
+                </strong>
+              </div>
+            </div>
+
+            <div className="col-1 mt-2 delete-btn">
+              <button
+                onClick={() => {
+                  handleDeleteConfirmation(data.id);
+                }}
+                className="btn border-0 mt-1 text-danger icon-button fa fa-trash"
+              />
+            </div>
           </div>
         </div>
       </div>
       <div className={!listActive ? "Show-list-info" : ""}>
         <div className="row Show-list-header statusOf-prices pt-3">
-          <div className="col-3">
-            <img src="https://s3.amazonaws.com/splitwise/uploads/category/icon/square_v2/uncategorized/general@2x.png" />
+          <div className="col-3 ">
+            <img
+              className="icon-big"
+              src="https://s3.amazonaws.com/splitwise/uploads/category/icon/square_v2/uncategorized/general@2x.png"
+            />
           </div>
-          <div className="col">
+          <div className="col edit-menu">
             {editMode ? (
               <form onSubmit={handleSubmitEdit}>
                 <div className="form-group">
@@ -251,7 +396,7 @@ const ListGroupCard = ({ data, members }: ListState) => {
                   Last updated by {user.name} on {handleTime(timeSpent).month}{" "}
                   {handleTime(timeSpent).day}, {handleTime(timeSpent).year}
                 </p>
-                <div className="signup-btn top-btns list-btn">
+                <div className="signup-btn top-btns list-btn edit-btn">
                   <button className="button" onClick={handleEdit}>
                     Edit expense
                   </button>
@@ -261,7 +406,7 @@ const ListGroupCard = ({ data, members }: ListState) => {
           </div>
         </div>
         <div className="row owe-list">
-          <div className="status-left col ">
+          <div className="status-left col mr-2">
             <img src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png" />
             <strong>{data.whoPaid === user.name ? "You" : data.whoPaid}</strong>{" "}
             paid <strong>${cost}</strong>

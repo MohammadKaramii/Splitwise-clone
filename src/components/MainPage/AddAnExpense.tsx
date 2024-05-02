@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
 import validator from "validator";
 import { useDispatch, useSelector } from "react-redux";
-import { updateMessage } from "../../redux/reducers/dummyDataSlice";
+import { updateGroup } from "../../redux/reducers/groupSlice";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { uid } from "uid";
+import Loading from "../Loading";
+import { setSpents } from "../../redux/reducers/spentsSlice";
+
 interface Errors {
   description?: string;
   cost?: string;
@@ -33,10 +36,10 @@ interface HowSpent {
 const AddAnExpense = () => {
   const user = useSelector((state: RootState) => state.userData.user);
   const activeGroup = user.activeGroup;
-  const groups = useSelector((state: RootState) => state.dummyData.groups);
+  const groups = useSelector((state: RootState) => state.groups.groups);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
+  const spents = useSelector((state: RootState) => state.spents);
   const [formData, setFormData] = useState<FormData>({
     description: "",
     cost: "",
@@ -48,6 +51,7 @@ const AddAnExpense = () => {
   const [isActive, setIsActive] = useState(false);
   const [whoPaid, setWhoPaid] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handlePayerSelection = useCallback(
     (name: string) => {
@@ -87,6 +91,7 @@ const AddAnExpense = () => {
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      setIsLoading(true);
 
       const formErrors: Errors = {};
 
@@ -120,28 +125,28 @@ const AddAnExpense = () => {
         sharedWith: selectedFriends,
       };
 
+      dispatch(setSpents([newEntry, ...spents]));
+
       const updatedGroups = groups.map((group) => {
         if (group.groupName === activeGroup) {
           const updatedGroup = {
             ...group,
-            howSpent: [newEntry, ...(group.howSpent || [])],
+            howSpent: [newEntry, ...(spents || [])],
           };
           return updatedGroup;
         }
         return group;
       });
-
-      const indexCurrentGroup = updatedGroups.findIndex(
-        (item) => item.groupName === activeGroup
-      );
+      dispatch(updateGroup(updatedGroups));
 
       const { error } = await supabase
         .from("groups")
         .update({
-          howSpent: updatedGroups[indexCurrentGroup].howSpent,
-          lastUpdate: updatedGroups[indexCurrentGroup].lastUpdate,
+          howSpent: [newEntry, ...spents],
+          lastUpdate: newEntry.createdAt,
         })
-        .eq("groupName", activeGroup);
+        .eq("groupName", activeGroup)
+        .eq("userId", user.id);
 
       if (error) {
         toast.error(`Error Adding data: ${error}`);
@@ -152,22 +157,23 @@ const AddAnExpense = () => {
         navigate("/mainpage");
       }
 
-      dispatch(updateMessage(updatedGroups));
-
       setFormData({
         description: "",
         cost: "",
         errors: {},
         isErrors: false,
       });
+      setIsLoading(false);
     },
-    [description, cost, whoPaid, user.name, selectedFriends, groups, activeGroup, dispatch, formData, navigate]
+    [description, cost, whoPaid, user.name, user.id, selectedFriends, dispatch, spents, groups, activeGroup, formData, navigate]
   );
+console.log("a");
 
   return (
     <>
       <div className="toppad"></div>
-      <div className="container">
+      {isLoading && <Loading />}
+      <div className="container py-5">
         <div className="d-flex justify-content-center gap-md-5">
           <div className="d-flex justify-content-center gap-md-5">
             <div className="col-md-2 signup-left-logo">

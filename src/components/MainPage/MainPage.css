@@ -97,6 +97,7 @@ input[type="text"] {
 
 .middle-component-container {
   min-height: 100vh;
+  min-width: 100%;
   border-left: 1px solid #ccc;
   border-right: 1px solid #ccc;
   box-shadow: 0 0 12px rgb(0 0 0 / 20%);
@@ -104,7 +105,6 @@ input[type="text"] {
 .sec-text-area li {
   list-style: none;
 }
-
 
 .middle-nav {
   background-color: rgba(231, 231, 231, 0.933);
@@ -328,15 +328,20 @@ button:hover {
 
 .paid-list {
   background: #f1f1f1;
-  margin: 0 -1rem;
-  margin-bottom: -0.63rem;
+  margin-right: 7px;
+  margin-left: 7px;
+  padding-top: 15px;
+  margin-top: 10px;
+  padding-left: 10px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  overflow-y: auto;
 }
 
 .paid-list li {
   padding: 1rem;
   list-style: none;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgb(168, 165, 165);
 }
 .paid-list i {
   color: #3eaf8f;
@@ -348,6 +353,7 @@ button:hover {
 .status-left img {
   border-radius: 5rem;
   width: 2.3rem;
+  margin-right: 10px;
 }
 
 .posts {
@@ -529,13 +535,20 @@ button:hover {
   width: 3rem;
   margin-bottom: 0.3rem;
 }
+
+.msg-container {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 .message-container {
   display: flex;
   justify-content: space-between;
   align-content: center;
   align-items: center;
   text-align: center;
-  gap: 4rem;
+  gap: 1rem;
 }
 .message-date p {
   text-align: center;
@@ -567,7 +580,7 @@ button:hover {
   color: #ff5216;
 }
 
-.lent-text{
+.lent-text {
   margin-top: 8px;
   margin-bottom: 0px;
 }
@@ -681,7 +694,7 @@ button:hover {
   background-color: #f8f9fa;
 }
 .active-member {
-  background-color: #5BC5A7;
+  background-color: #5bc5a7;
 }
 .member-data p {
   margin-bottom: 0;
@@ -692,6 +705,17 @@ button:hover {
 .userImg img {
   width: 10rem;
 }
+
+.aaaa {
+  margin-left: 20px;
+}
+
+
+.payments-modal {
+  margin-top: 0px;
+}
+
+
 @media (max-width: 900px) {
   .middle-nav {
     flex-direction: column;
@@ -707,9 +731,105 @@ button:hover {
     display: none;
   }
 }
-@media (max-width: 500px) {
-  .main-box {
-    flex-direction: column;
-    justify-content: center;
+
+@media (max-width: 1400px) {
+  .msg-container {
+    display: none;
   }
+
+  .description {
+    margin-top: 5px;
+  }
+
+  .message-date span {
+    margin-left: 0;
+  }
+  .aaaa {
+    width: 49%;
+  }
+
+  .bbbb {
+    width: 49%;
+  }
+
+  .delete-btn {
+    margin-left: 40px;
+  }
+ 
+}
+
+@media (max-width: 1200px) {
+  .aaaa {
+    width: 60%;
+    margin-left: 0;
+  }
+  .bbbb {
+    width: 60%;
+  }
+
+  .delete-btn {
+    margin-left: 47px;
+  }
+
+  .icon-big{
+    width: 50px;
+  }
+}
+
+@media (max-width: 457px) {
+  .date {
+    padding: 0;
+    width: 25px;
+  }
+
+  .description {
+    margin-top: 7px;
+  }
+
+  .spent-status {
+    margin-top: 5px;
+  }
+
+  .message-date p {
+    font-size: 11px;
+  }
+  .message-date span {
+    font-size: 11px;
+  }
+  .aaaa {
+    font-size: 11px;
+  }
+  .bbbb {
+    font-size: 11px;
+  }
+  .delete-btn {
+    margin-left: 30px;
+  }
+
+  .paid-list {
+    
+    > h5 {
+      font-size: 14px;
+    }
+    >li {
+      font-size: 14px;
+    }
+  
+  }
+
+  .icon-big{
+    width: 50px;
+  }
+
+  .edit-menu h5 {
+   font-size: 18px;
+} 
+ .edit-menu h4 {
+   font-size: 18px;
+}
+
+.edit-btn{
+  margin-top: 10px;
+}
+
 }

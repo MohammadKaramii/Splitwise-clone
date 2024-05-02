@@ -27,14 +27,14 @@ const initialState = {
   ],
 };
 
-const dummyDataSlice = createSlice({
-  name: "dummyData",
+const groupSlice = createSlice({
+  name: "groups",
   initialState,
   reducers: {
     setGroupData(state, action) {
       state.groups = action.payload;
     },
-    updateMessage(state, action) {
+    updateGroup(state, action) {
       const { groupName, update } = action.payload;
       const groupIndex = state.groups.findIndex(
         (group) => group.groupName === groupName
@@ -46,6 +46,6 @@ const dummyDataSlice = createSlice({
   },
 });
 
-export const { setGroupData, updateMessage } = dummyDataSlice.actions;
+export const { setGroupData, updateGroup } = groupSlice.actions;
 
-export default dummyDataSlice.reducer;
+export default groupSlice.reducer;

@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setGroupData } from "../../redux/reducers/dummyDataSlice";
+import { setGroupData } from "../../redux/reducers/groupSlice";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { RootState } from "../../redux/store";
 import { uid } from "uid";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import Loading from "../Loading";
 
 const AddGroup = () => {
   const [isActive, setIsActive] = useState(false);
@@ -14,6 +15,7 @@ const AddGroup = () => {
   const userData = useSelector(selectUserData);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState([
     { id: userData.id, name: userData.name, email: userData.email },
     { id: "", name: "", email: "" },
@@ -21,7 +23,7 @@ const AddGroup = () => {
     { id: "", name: "", email: "" },
   ]);
   const currentGroups = useSelector((state: RootState) =>
-    state.dummyData.groups.filter((group) => group.userId === userData.id)
+    state.groups.groups.filter((group) => group.userId === userData.id)
   );
 
   const handleMemberChange = useCallback(
@@ -64,7 +66,7 @@ const AddGroup = () => {
       userId: userData.id,
       lastUpdate: new Date().toISOString(),
     };
-
+    setIsLoading(true);
     const { error } = await supabase.from("groups").insert([newGroup]);
 
     if (error) {
@@ -75,6 +77,7 @@ const AddGroup = () => {
         duration: 4000,
       });
       dispatch(setGroupData([...currentGroups, newGroup]));
+      setIsLoading(false);
       navigate("/mainpage");
     }
   }, [dispatch, groupName, members, userData.id, currentGroups, navigate]);
@@ -91,6 +94,7 @@ const AddGroup = () => {
     <>
       <div className="toppad"></div>
       <div className="container">
+        {isLoading && <Loading />}
         <div className="d-flex justify-content-center gap-md-5">
           <div className="col-md-2 signup-left-logo">
             <img

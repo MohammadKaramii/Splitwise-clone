@@ -1,16 +1,16 @@
-import { combineReducers } from 'redux';
-import dummyDataReducer from './dummyDataSlice';
-import userDataReducer from './userDataSlice'; 
-import totalAmonutReducer from './totalAmonutSlice';
-import paidReducer from './paidSlice';
-import spentReducer from './spentsSlice';
+import { combineReducers } from "redux";
+import groupReducer from "./groupSlice";
+import userDataReducer from "./userDataSlice";
+import totalAmonutReducer from "./totalAmonutSlice";
+import paidReducer from "./paidSlice";
+import spentReducer from "./spentsSlice";
 
 const rootReducer = combineReducers({
-  dummyData: dummyDataReducer,
+  groups: groupReducer,
   userData: userDataReducer,
   totalAmonut: totalAmonutReducer,
   paids: paidReducer,
-  spents: spentReducer
+  spents: spentReducer,
 });
 
 export default rootReducer;

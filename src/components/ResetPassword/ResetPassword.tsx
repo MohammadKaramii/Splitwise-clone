@@ -4,14 +4,15 @@ import { toast } from "react-hot-toast";
 import Header from "../Header/Header";
 import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "../../../supabase";
-
+import Loading from "../Loading";
 const ResetPasswordForm = () => {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const [email, setEmail] = useState("");
   const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
+setIsLoading(true)
     if (!isRecaptchaVerified) {
       toast.error("Please verify that you are not a robot.", {
         duration: 4000,
@@ -41,6 +42,7 @@ const ResetPasswordForm = () => {
       });
     }
     setEmail("");
+    setIsLoading(false);
   };
 
   const handleRecaptchaChange = (value: string | null) => {
@@ -50,6 +52,7 @@ const ResetPasswordForm = () => {
     <>
       <Header />
       <div className="container">
+      {isLoading && <Loading />}
         <div className=" row">
           <div className="col-md-2 offset-md-4">
             <img

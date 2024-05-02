@@ -6,7 +6,7 @@ import {
 } from "../../redux/reducers/userDataSlice";
 import { Link } from "react-router-dom";
 import { supabase } from "../../../supabase";
-import { setGroupData } from "../../redux/reducers/dummyDataSlice";
+import { setGroupData } from "../../redux/reducers/groupSlice";
 import toast from "react-hot-toast";
 import { setSpents } from "../../redux/reducers/spentsSlice";
 import { RootState } from "../../redux/store";
@@ -15,10 +15,10 @@ import { setAddPayment } from "../../redux/reducers/paidSlice";
 interface Group {
   id: string;
   groupName: string;
-  friends: string;
+  friends: string[];
 }
 
-const LeftComponent = () => {
+const GroupsAndFriends = () => {
   const userData = useSelector(selectUserData);
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.userData.user);
@@ -27,55 +27,70 @@ const LeftComponent = () => {
   const [selectedFriend, setSelectedFriend] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
-  const activeGroup = useMemo(
-    () => groups.find((group) => group.groupName === user.activeGroup),
-    [groups, user.activeGroup]
-  );
-  useEffect(() => {
-    dispatch(setSpents(activeGroup?.howSpent));
-  }, [activeGroup?.howSpent, dispatch]);
 
-  const fetchGroups = useCallback(async () => {
-    try {
-      const { data: groupsData, error } = await supabase
+  const fetchGroupsData = useCallback(async () => {
+    // Fetch groups data
+    const groupsResponse = await supabase
         .from("groups")
         .select("*")
         .eq("userId", userData.id);
+    const { data: groupsData, error: groupsError } = groupsResponse;
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setGroups(groupsData || []);
-      dispatch(setGroupData(groupsData));
-    } catch (error) {
-      console.error("Error fetching groups:", error);
+    if (groupsError) {
+        throw new Error(groupsError.message);
     }
-  }, [dispatch, userData.id]);
 
-  const fetchPaids = useCallback(async () => {
-    try {
-      const { data: paids, error } = await supabase
+    setGroups(groupsData || []);
+    dispatch(setGroupData(groupsData));
+},[dispatch, userData.id])
+
+const fetchPaidsData = useCallback(async () => {
+    // Fetch paids data
+    const paidsResponse = await supabase
         .from("myPaids")
         .select("*")
         .eq("userId", userData.id);
+    const { data: paids, error: paidsError } = paidsResponse;
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      console.log(paids[0].paids);
-      dispatch(setAddPayment(paids[0].paids));
-    } catch (error) {
-      console.error("Error fetching groups:", error);
+    if (paidsError) {
+        throw new Error(paidsError.message);
     }
-  }, [dispatch, userData.id]);
 
-  useEffect(() => {
-    fetchGroups();
-    fetchPaids();
-  }, [fetchGroups, fetchPaids]);
+    dispatch(setAddPayment(paids[0]?.paids || []));
+},[dispatch, userData.id])
 
+const fetchSpentsData = useCallback(async () => {
+    // Fetch spents data
+    const spentsResponse = await supabase
+        .from("groups")
+        .select("howSpent")
+        .eq("groupName", user.activeGroup)
+        .eq("userId", userData.id);
+    const { data: spents, error: spentsError } = spentsResponse;
 
+    if (spentsError) {
+        throw new Error(spentsError.message);
+    }
+
+    dispatch(setSpents(spents[0]?.howSpent || []));
+}, [dispatch, user.activeGroup, userData.id]);
+
+useEffect(() => {
+    const fetchData = async () => {
+        try {
+            await fetchGroupsData();
+            await fetchPaidsData();
+
+            if (user.activeGroup) {
+                await fetchSpentsData();
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    };
+
+    fetchData();
+}, [dispatch, fetchGroupsData, fetchPaidsData, fetchSpentsData, user.activeGroup, userData.id]);
   const uniqueFriends = useMemo(() => {
     const friends = groups.map((group) => group.friends);
     return Array.from(new Set(friends.flat()));
@@ -146,6 +161,8 @@ const LeftComponent = () => {
     setGroupToDelete(null);
     setShowConfirmation(false);
   }, []);
+
+
   return (
     <div className="right-contianer p-3">
       {showConfirmation && (
@@ -174,16 +191,6 @@ const LeftComponent = () => {
         <p>Dashboard</p>
       </div>
 
-      <div className="recent-activity">
-        <i className="fa-solid fa-flag"></i>
-        <h6>Recent activity</h6>
-      </div>
-
-      <div className="expenses row">
-        <i className="fa fa-list col-1 pt-1"></i>
-        <p className="col-10">All expenses</p>
-      </div>
-
       <div className="group">
         <div className="sec-type">
           <p>GROUPS</p>
@@ -201,7 +208,7 @@ const LeftComponent = () => {
               key={group.id}
               className={`${
                 group.groupName === selectedGroup ? "open" : ""
-              } d-flex justify-content-between`}
+              } d-flex flex-row justify-content-between`}
               onClick={() => handleClickOnGroup(group.groupName)}
             >
               <h6>
@@ -232,44 +239,10 @@ const LeftComponent = () => {
               </h6>
             </li>
           ))}
-
-          <div className="invite-box">
-            <div className="invite-header">Invite friends</div>
-            <div className="invite-input">
-              <input
-                className="invite-email"
-                type="email"
-                placeholder="Enter an email address"
-              />
-              <button className="btn btn-cancel send-invite">
-                Send invite
-              </button>
-            </div>
-            <div className="social-left">
-              <div>
-                <button className="facebook">
-                  <img
-                    src="https://secure.splitwise.com/assets/fat_rabbit/social/facebook.png"
-                    alt="Facebook"
-                  />
-                  Share
-                </button>
-              </div>
-              <div>
-                <button className="tweet">
-                  <img
-                    src="https://secure.splitwise.com/assets/fat_rabbit/social/twitter.png"
-                    alt="Twitter"
-                  />
-                  Tweet
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default LeftComponent;
+export default GroupsAndFriends;

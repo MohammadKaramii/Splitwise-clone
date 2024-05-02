@@ -3,36 +3,23 @@ import Header from "../Header/Header";
 import "./LoginForm.css";
 import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "../../../supabase";
-import { useSessionContext } from "@supabase/auth-helpers-react";
 import { setSignInUserData } from "../../redux/reducers/userDataSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState } from "react";
 import { RootState } from "../../redux/store";
 import SuccessLoginMessage from "../SuccessMessage";
 import { toast } from "react-hot-toast";
-
+import Loading from "../Loading";
 const LoginForm = () => {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
-  const { session } = useSessionContext();
   const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const user = useSelector((state: RootState) => state.userData.user);
 
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-    });
 
-    if (error) {
-      console.error("Google login error:", error);
-    } else if (session?.user) {
-      const user = session.user;
-      console.log("Google login success:", user);
-      dispatch(setSignInUserData(user));
-    }
-  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,6 +32,8 @@ const LoginForm = () => {
     }
 
     try {
+      setIsLoading(true)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -67,6 +56,8 @@ const LoginForm = () => {
     } catch (error) {
       console.error(error);
       toast.error("An error occurred. Please try again later!");
+    }finally {
+      setIsLoading(false);
     }
   };
 
@@ -74,9 +65,12 @@ const LoginForm = () => {
     setIsRecaptchaVerified(!!value);
   };
 
+
   return (
     <>
-      {user.isSignIn ? (
+      {isLoading ? ( 
+        <Loading /> 
+      ) : user.isSignIn ? (
         <SuccessLoginMessage />
       ) : (
         <>
@@ -129,20 +123,7 @@ const LoginForm = () => {
                           </p>
                         </Link>
 
-                        <div className="or-text m-2">
-                          <hr className="line" />
-                          <div className="d-inline-block px-2">or</div>
-                          <hr className="line" />
-                        </div>
-
-                        <button
-                          className="btn w-100 btn-block sumbit"
-                          type="submit"
-                          onClick={handleGoogleLogin}
-                        >
-                          <i className="fab fa-google me-2"></i> Sign in with
-                          Google
-                        </button>
+        
                       </div>
                     </form>
                   </div>

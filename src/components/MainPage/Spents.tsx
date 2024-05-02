@@ -9,8 +9,8 @@ import { useMemo } from "react";
 const MiddleComponent = () => {
   const user = useSelector((state: RootState) => state.userData.user);
   const paids = useSelector((state: RootState) => state.paids);
-  const paidToCurrentUser = paids?.filter((paid) => paid.toWho === user.name);
-  const currentUserPaid = paids?.filter((paid) => paid.whoPaid === user.name);
+  const paidToCurrentUser = paids?.filter((paid) => paid.toWho === user.name && paid.groupName === user.activeGroup);
+  const currentUserPaid = paids?.filter((paid) => paid.whoPaid === user.name && paid.groupName === user.activeGroup);
   const spents = useSelector((state: RootState) => state.spents);
 
 
@@ -34,25 +34,21 @@ const MiddleComponent = () => {
 
       if (paidToCurrentUser) {
         
-        const sumAmount = paidToCurrentUser.reduce(
+        const demands = paidToCurrentUser.reduce(
           (total, paid) => total + paid.howMuchPaid,
           0
         );
        
-        calculatedAmount >= 0
-          ? (calculatedAmount -= sumAmount)
-          : (calculatedAmount += sumAmount);
+        calculatedAmount -= demands
       }
 
       if (currentUserPaid) {
-        const sumAmount = currentUserPaid.reduce(
+        const debts = currentUserPaid.reduce(
           (total, paid) => total + paid.howMuchPaid,
           0
         );
-        
-        calculatedAmount <= 0
-          ? (calculatedAmount -= sumAmount)
-          : (calculatedAmount += sumAmount);
+        calculatedAmount += debts
+
       }
 
       return calculatedAmount;
@@ -120,9 +116,6 @@ const MiddleComponent = () => {
                 Add an expense
               </button>
             </Link>
-          </div>
-          <div className="signup-btn settle-up">
-            <button type="submit">Settle Up</button>
           </div>
         </div>
       </div>

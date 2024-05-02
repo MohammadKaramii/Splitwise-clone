@@ -46,5 +46,18 @@
       display: flex;
       justify-content: center;
     }
+.header-content{
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+    .header-right{
+      padding-top: 10px;
+
+    }
+
+    .title-bar{
+     
+      padding-bottom: 10px;
+    }
   }
   

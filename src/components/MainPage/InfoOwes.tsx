@@ -1,12 +1,18 @@
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
-
-const RightComponent = () => {
-  const groups = useSelector((state: RootState) => state.dummyData.groups);
+import Loading from "../Loading";
+interface Paid {
+  whoPaid: string;
+  toWho: string;
+  groupName: string;
+  howMuchPaid: number;
+}
+const InfoOwes = () => {
+  const groups = useSelector((state: RootState) => state.groups.groups);
   const user = useSelector((state: RootState) => state.userData.user);
   const activeGroupName = user.activeGroup;
   const activeGroup = useMemo(
@@ -24,11 +30,9 @@ const RightComponent = () => {
   const [settleAmount, setSettleAmount] = useState(0);
   const [selectedFriend, setSelectedFriend] = useState("");
   const [friend, setFriend] = useState("");
-  // const [activeFriendPaids, setActiveFriendPaids] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const paids = useSelector((state: RootState) => state.paids);
   const spents = useSelector((state: RootState) => state.spents);
-
-
 
   const calculateTotalAmount = useCallback(
     (whoPaid: string) => {
@@ -39,7 +43,6 @@ const RightComponent = () => {
         (paid) => paid.toWho === whoPaid && paid.groupName === activeGroupName
       );
 
-      
       const currentUserPaid = paids?.filter(
         (paid) => paid.whoPaid === whoPaid && paid.groupName === activeGroupName
       );
@@ -55,7 +58,10 @@ const RightComponent = () => {
           return sum + (item.cost - shareAmount);
         }
 
-        if (item.sharedWith?.includes(whoPaid) || shouldIncludeUser) {
+        if (
+          item.sharedWith?.some((sharedWith) => sharedWith === whoPaid) ||
+          shouldIncludeUser
+        ) {
           return sum - shareAmount;
         }
         return sum;
@@ -90,19 +96,21 @@ const RightComponent = () => {
           selectedFriend === user.name
       );
 
-      const totalAmounts = currentHowSpents?.reduce((sum, item) => {
-        const shareAmount = item.cost / (item.sharedWith.length + 1);
+      const totalAmounts = currentHowSpents?.length
+        ? currentHowSpents.reduce((sum, item) => {
+            const shareAmount = item.cost / (item.sharedWith.length + 1);
 
-        if (friend === selectedFriend) {
-          return 0;
-        }
+            if (friend === selectedFriend) {
+              return 0;
+            }
 
-        return item.whoPaid === friend
-          ? sum - shareAmount
-          : item.whoPaid === selectedFriend
-          ? sum + shareAmount
-          : sum;
-      }, 0);
+            return item.whoPaid === friend
+              ? sum - shareAmount
+              : item.whoPaid === selectedFriend
+              ? sum + shareAmount
+              : sum;
+          }, 0)
+        : 0;
 
       const demands =
         paids
@@ -130,19 +138,7 @@ const RightComponent = () => {
     [activeGroup?.howSpent, paids, selectedFriend, user.name, activeGroupName]
   );
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (modalRef.current && !modalRef?.current?.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSettleMessage = (member: string, selectedFriend: string) => {
+  const handleSettleMessage = useCallback((member: string, selectedFriend: string) => {
     setFriend(member);
     if (Number(calculateTotalAmountFriend(member)) < 0) {
       setSettleModal(true);
@@ -160,12 +156,17 @@ const RightComponent = () => {
         } anything`
       );
     }
-  };
+  },[calculateTotalAmountFriend, user.name]);
 
   const handleSettleUp = useCallback(
-    async (e) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      setIsLoading(true);
 
+      if (settleAmount === 0 || Number.isNaN(settleAmount)) {
+        toast.error("Please enter current amount to settle");
+        return;
+      }
       const newPayment = {
         whoPaid: selectedFriend,
         howMuchPaid: settleAmount,
@@ -173,7 +174,7 @@ const RightComponent = () => {
         groupName: activeGroupName,
       };
 
-      const updatedPaids = (prevPaids) => {
+      const updatedPaids = (prevPaids: Paid[]) => {
         if (prevPaids.length === 0) {
           return [...prevPaids, newPayment];
         } else {
@@ -199,21 +200,19 @@ const RightComponent = () => {
           }
         }
       };
-  //     // setPaids(updatedPaids);
-  //  console.log(paids);
-   
 
-      const { error } = paids.length === 0
-        ? await supabase.from("myPaids").insert({
-            paids: updatedPaids(paids),
-            userId: user.id,
-          })
-        : await supabase
-            .from("myPaids")
-            .update({
+      const { error } =
+        paids.length === 0
+          ? await supabase.from("myPaids").insert({
               paids: updatedPaids(paids),
+              userId: user.id,
             })
-            .eq("userId", user.id);
+          : await supabase
+              .from("myPaids")
+              .update({
+                paids: updatedPaids(paids),
+              })
+              .eq("userId", user.id);
 
       if (error) {
         toast.error(`Error updating data: ${error}`);
@@ -225,7 +224,9 @@ const RightComponent = () => {
       }
 
       setSettleModal(false);
+      setIsOpen(false);
       setSettleAmount(0);
+      setIsLoading(false);
     },
     [
       activeGroupName,
@@ -240,6 +241,7 @@ const RightComponent = () => {
 
   return (
     <>
+      {isLoading && <Loading />}
       {user.activeGroup && friends.length > 0 && (
         <div className="col mt-3">
           <h5 className="right-title">GROUP BALANCES</h5>
@@ -266,13 +268,13 @@ const RightComponent = () => {
                 </div>
                 <div className="member-data">
                   <p>{member}</p>
-                  {calculateTotalAmount(member) > 0 ? (
+                  {Number(calculateTotalAmount(member)) > 0 ? (
                     <div className="text-success">
                       gets back ${calculateTotalAmount(member)}
                     </div>
-                  ) : calculateTotalAmount(member) < 0 ? (
+                  ) : Number(calculateTotalAmount(member)) < 0 ? (
                     <div className="text-danger">
-                      owes ${Math.abs(calculateTotalAmount(member))}
+                      owes ${Math.abs(Number(calculateTotalAmount(member)))}
                     </div>
                   ) : (
                     <span className="h5 price-zero">$0.00</span>
@@ -297,13 +299,13 @@ const RightComponent = () => {
               </div>
               <div className="member-data">
                 <p>You</p>
-                {calculateTotalAmount(user.name) > 0 ? (
+                {Number(calculateTotalAmount(user.name)) > 0 ? (
                   <div className="text-success">
                     gets back ${calculateTotalAmount(user.name)}
                   </div>
-                ) : calculateTotalAmount(user.name) < 0 ? (
+                ) : Number(calculateTotalAmount(user.name)) < 0 ? (
                   <div className="text-danger">
-                    owes ${Math.abs(calculateTotalAmount(user.name))}
+                    owes ${Math.abs(Number(calculateTotalAmount(user.name)))}
                   </div>
                 ) : (
                   <span className="h6 price-zero">$0.00</span>
@@ -313,9 +315,9 @@ const RightComponent = () => {
           </ul>
           {isOpen && (
             <>
-              <div className="modal fade show d-block ">
+              <div className="modal fade show d-flex ">
                 <div className="modal-dialog modal-dialog-centered">
-                  <div className="modal-content" ref={modalRef}>
+                  <div className="modal-content payments-modal" ref={modalRef}>
                     <div className="modal-header">
                       <h5 className="modal-title">
                         Suggested repayments for {activeGroupName}
@@ -450,9 +452,9 @@ const RightComponent = () => {
       )}
       {settleModal && (
         <form onSubmit={handleSettleUp}>
-          <div className="modal" style={{ display: "block" }}>
+          <div className="modal d-flex">
             <div className="modal-dialog">
-              <div className="modal-content">
+              <div className="modal-content settleup-modal">
                 <div className="modal-header">
                   <h5 className="modal-title">Settle Up</h5>
                   <button
@@ -471,7 +473,6 @@ const RightComponent = () => {
                     onChange={(e) =>
                       setSettleAmount(parseFloat(e.target.value))
                     }
-                    min={0}
                     max={howMuchSettle}
                   />
                 </div>
@@ -513,4 +514,4 @@ const RightComponent = () => {
   );
 };
 
-export default RightComponent;
+export default InfoOwes;

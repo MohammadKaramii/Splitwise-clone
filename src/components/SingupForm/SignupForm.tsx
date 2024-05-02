@@ -7,8 +7,8 @@ import { setSignInUserData } from "../../redux/reducers/userDataSlice";
 import SuccessLoginMessage from "../SuccessMessage";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
-import { useSessionContext } from "@supabase/auth-helpers-react";
 import ReCAPTCHA from "react-google-recaptcha";
+import Loading from "../Loading";
 interface Errors {
   name?: string;
   email?: string;
@@ -20,7 +20,6 @@ const SignupForm = () => {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.userData.user);
-  const { session } = useSessionContext();
   const [ifFilled, setIfFilled] = useState(false);
   const [isErrors, setIsErrors] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -29,13 +28,7 @@ const SignupForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
-  const [showCurrency, setShowCurrency] = useState(false);
-  const currencyOptions = [
-    { value: "EUR", label: "EUR (€)" },
-    { value: "IRR", label: "IRR (ريال)" },
-    { value: "USD", label: "USD ($)" },
-  ];
-
+  const [isLoading, setIsLoading] = useState(false);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isActive) {
@@ -57,6 +50,8 @@ const SignupForm = () => {
 
       if (Object.keys(errors).length === 0) {
         try {
+          
+              setIsLoading(true)
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -84,6 +79,8 @@ const SignupForm = () => {
           setIsErrors(true);
           setIfFilled(true);
           return;
+        }finally {
+          setIsLoading(false);
         }
       }
 
@@ -93,32 +90,19 @@ const SignupForm = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-    });
-
-    if (error) {
-      setIfFilled(true);
-      console.error("Google login error:", error);
-    } else if (session?.user) {
-      const user = session.user;
-      console.log("Google login success:", user);
-      dispatch(setSignInUserData(user));
-    }
-  };
+  
 
   const handleRecaptchaChange = (value: string | null) => {
     setIsRecaptchaVerified(!!value);
   };
 
-  const handleCurrencyClick = () => {
-    setShowCurrency(true);
-  };
+
 
   return (
     <>
-      {user.isSignIn ? (
+      {isLoading ? ( 
+        <Loading /> 
+      ) : user.isSignIn ? (
         <SuccessLoginMessage />
       ) : (
         <>
@@ -161,7 +145,6 @@ const SignupForm = () => {
                       <ul>
                         {errors.name && <li>{errors.name}</li>}
                         {errors.password && <li>{errors.password}</li>}
-                        {/* {errors.password1 && <li>{errors.password1}</li>} */}
                         {errors.email && <li>{errors.email}</li>}
                         {errors.recaptcha && <li>{errors.recaptcha}</li>}
                       </ul>
@@ -216,28 +199,6 @@ const SignupForm = () => {
                           }}
                         />
                       </div>
-                      {showCurrency && (
-                        <div id="currency">
-                          And here’s the <strong>currency</strong> that I use:
-                          <br />
-                          <select
-                            name="user[default_currency]"
-                            id="user_default_currency"
-                            className="py-2 px-5 my-3 rounded border-success select-currency"
-                          >
-                            {currencyOptions.map((option) => (
-                              <option
-                                key={option.value}
-                                value={option.value}
-                                selected={option.value === "USD"}
-                                className="option-currency"
-                              >
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
                       <div className="mb-3 recaptcha-signin">
                         <ReCAPTCHA
                           sitekey={siteKey}
@@ -251,19 +212,6 @@ const SignupForm = () => {
                     <div className="signup-btn">
                       <button type="submit">Sign me up!</button>
                     </div>
-                    <div className="right-btn">
-                      or
-                      <button
-                        className="btn btn-large btn-signup btn-google"
-                        onClick={handleGoogleLogin}
-                      >
-                        <img
-                          src="https://assets.splitwise.com/assets/fat_rabbit/signup/google-2017-a5b76a1c1eebd99689b571954b1ed40e13338b8a08d6649ffc5ca2ea1bfcb953.png"
-                          alt="Google"
-                        />
-                        Sign up with Google
-                      </button>
-                    </div>
                   </div>
 
                   <div className="tos_acceptance">
@@ -273,15 +221,6 @@ const SignupForm = () => {
                         Service.
                       </Link>
                     </div>
-
-                    {isActive && (
-                      <div>
-                        Don't use USD for currency?{" "}
-                        <a href="#" onClick={handleCurrencyClick}>
-                          Click here
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </form>
               </div>

@@ -9,7 +9,7 @@ interface TotalAmounts {
 }
 const FriendActiveState: React.FC = () => {
   const dispatch = useDispatch();
-  const groups = useSelector((state: RootState) => state.dummyData.groups);
+  const groups = useSelector((state: RootState) => state.groups.groups);
   const user = useSelector(selectUserData);
   const activeFriend = user.activeFriend;
   const [totalAmountFriend, setTotalAmountFriend] = useState<TotalAmounts>({});
@@ -17,15 +17,15 @@ const FriendActiveState: React.FC = () => {
     (value) => value === 0
   );
 
-  const handleTime = (groupName: string) => {
+  const handleTime = useCallback((groupName: string) => {
     const currentGroup = groups.find((group) => group.groupName === groupName);
-    const timeUpdate = currentGroup?.lastUpdate!;
+    const timeUpdate = currentGroup?.lastUpdate || new Date().toISOString();
     const month = new Date(timeUpdate)
       .toLocaleString("en-US", { month: "long" })
       .slice(0, 3);
     const day = new Date(timeUpdate).getDate();
     return { month, day };
-  };
+  },[groups]);
   const paids = useSelector((state: RootState) => state.paids);
 
   const calculateTotalAmountFriend = useCallback(() => {
@@ -36,11 +36,12 @@ const FriendActiveState: React.FC = () => {
 
 
 
+
     const totalAmounts: TotalAmounts = {};
   
     
     groups.forEach((group) => {
-      let groupTotalAmount = group.howSpent
+      let allGroupsTotalAmountFriend = group.howSpent
         ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
         .reduce((sum, item) => {
           const shareAmount = item.cost / (item.sharedWith.length + 1);
@@ -54,13 +55,13 @@ const FriendActiveState: React.FC = () => {
 
       paids.forEach((paid) => {
         if (paid.whoPaid === user.name && paid.groupName === group.groupName) {
-          groupTotalAmount -= paid.howMuchPaid;
+          allGroupsTotalAmountFriend -= paid.howMuchPaid;
         } else if (paid.toWho === user.name && paid.groupName === group.groupName) {
-          groupTotalAmount += paid.howMuchPaid;
+          allGroupsTotalAmountFriend += paid.howMuchPaid;
         }
       });
       totalAmounts[group.groupName] = Number(
-        groupTotalAmount ? groupTotalAmount.toFixed(2) : 0
+        allGroupsTotalAmountFriend ? allGroupsTotalAmountFriend.toFixed(2) : 0
       );
     });
 
@@ -69,15 +70,15 @@ const FriendActiveState: React.FC = () => {
 
   useEffect(() => {
     const totalAmountWithFriend = calculateTotalAmountFriend();
-
-    
     const totalAmount = Object.values(totalAmountWithFriend).reduce(
       (acc, value) => acc + value,
       0
     );
+ 
     setTotalAmountFriend(totalAmountWithFriend);
     dispatch(setTotalAmount(totalAmount));
   }, [activeFriend, calculateTotalAmountFriend, dispatch]);
+
 
   return (
     <>
