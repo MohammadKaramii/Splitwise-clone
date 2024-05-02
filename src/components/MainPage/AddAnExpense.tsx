@@ -167,7 +167,7 @@ const AddAnExpense = () => {
     },
     [description, cost, whoPaid, user.name, user.id, selectedFriends, dispatch, spents, groups, activeGroup, formData, navigate]
   );
-console.log("a");
+
 
   return (
     <>

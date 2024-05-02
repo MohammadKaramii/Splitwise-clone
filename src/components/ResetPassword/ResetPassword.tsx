@@ -28,7 +28,7 @@ setIsLoading(true)
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/password_reset/update_password",
+      redirectTo: "https://splitwise2024.vercel.app/password_reset/update_password",
     });
     if (error) {
       console.error(error);
