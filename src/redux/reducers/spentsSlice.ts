@@ -14,7 +14,7 @@ export const spentsSlice = createSlice({
     },
   ],
   reducers: {
-    setSpents: (state, action) => {
+    setSpents: (_state, action) => {
       return action.payload;
     },
   },

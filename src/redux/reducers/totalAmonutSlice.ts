@@ -5,7 +5,7 @@ export const totalAmountSlice = createSlice({
   name: 'totalAmount',
   initialState: 0,
   reducers: {
-    setTotalAmount: (state, action) => {
+    setTotalAmount: (_state, action) => {
       return action.payload;
     },
   },

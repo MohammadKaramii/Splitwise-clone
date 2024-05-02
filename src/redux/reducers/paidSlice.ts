@@ -12,7 +12,7 @@ const paidSlice = createSlice({
   ],
 
   reducers: {
-    setAddPayment(state, action) {
+    setAddPayment(_state, action) {
       return action.payload;
     },
   },

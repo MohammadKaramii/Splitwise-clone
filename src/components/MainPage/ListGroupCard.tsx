@@ -186,7 +186,7 @@ const ListGroupCard = ({ data, members }: ListState) => {
           );
           if (spentIndexToDelete !== -1) {
             return prevSpents.filter(
-              (spent, index) => index !== spentIndexToDelete
+              (_spent, index) => index !== spentIndexToDelete
             );
           } else {
             return prevSpents;
