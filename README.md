@@ -66,7 +66,7 @@ Replace YOUR_SUPABASE_URL, YOUR_SUPABASE_ANON_KEY, and YOUR_RECAPTCHA_SITE_KEY w
 
 Start the development server:
 
-```bash
+
 npm run dev
 Open your browser and navigate to http://localhost:3000 to view the app.
 Additional Information
