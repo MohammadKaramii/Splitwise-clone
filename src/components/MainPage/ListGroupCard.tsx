@@ -1,32 +1,14 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { setSpents } from "../../redux/reducers/spentsSlice";
-import Loading from "../Loading";
+import { Loading } from "../Loading";
 import { updateGroup } from "../../redux/reducers/groupSlice";
+import { ListState, Spent } from "../../types";
 
-interface ListState {
-  data: {
-    message: string;
-    cost: number;
-    createdAt: string;
-    id: string;
-    whoPaid: string;
-    sharedWith: string[];
-  };
-  members: string[];
-  totalAmount: number;
-}
-
-interface Spent {
-  id: string;
-
-
-}
-
-const ListGroupCard = ({ data, members }: ListState) => {
+function ListGroupCardComponent({ data, members }: ListState) {
   const user = useSelector((state: RootState) => state.userData.user);
   const [listActive, setListActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -438,6 +420,6 @@ const ListGroupCard = ({ data, members }: ListState) => {
       </div>
     </div>
   );
-};
+}
 
-export default ListGroupCard;
+export const ListGroupCard = memo(ListGroupCardComponent);

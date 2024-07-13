@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { RootState } from "../../redux/store";
@@ -7,39 +7,41 @@ import { setTotalAmount } from "../../redux/reducers/totalAmonutSlice";
 interface TotalAmounts {
   [key: string]: number;
 }
-const FriendActiveState: React.FC = () => {
+function FriendActiveStateComponent() {
   const dispatch = useDispatch();
   const groups = useSelector((state: RootState) => state.groups.groups);
   const user = useSelector(selectUserData);
-  const activeFriend = user.activeFriend;
+  const activeFriend = useMemo(() => {
+    return user.activeFriend;
+  }, [user.activeFriend]);
   const [totalAmountFriend, setTotalAmountFriend] = useState<TotalAmounts>({});
-  const allZero = Object.values(totalAmountFriend).every(
-    (value) => value === 0
-  );
+  const allZero = useMemo(() => {
+    return Object.values(totalAmountFriend).every((value) => value === 0);
+  }, [totalAmountFriend]);
 
-  const handleTime = useCallback((groupName: string) => {
-    const currentGroup = groups.find((group) => group.groupName === groupName);
-    const timeUpdate = currentGroup?.lastUpdate || new Date().toISOString();
-    const month = new Date(timeUpdate)
-      .toLocaleString("en-US", { month: "long" })
-      .slice(0, 3);
-    const day = new Date(timeUpdate).getDate();
-    return { month, day };
-  },[groups]);
+  const handleTime = useCallback(
+    (groupName: string) => {
+      const currentGroup = groups.find(
+        (group) => group.groupName === groupName
+      );
+      const timeUpdate = currentGroup?.lastUpdate || new Date().toISOString();
+      const month = new Date(timeUpdate)
+        .toLocaleString("en-US", { month: "long" })
+        .slice(0, 3);
+      const day = new Date(timeUpdate).getDate();
+      return { month, day };
+    },
+    [groups]
+  );
   const paids = useSelector((state: RootState) => state.paids);
 
   const calculateTotalAmountFriend = useCallback(() => {
     if (!groups || !activeFriend) {
       return {};
     }
-  
-
-
-
 
     const totalAmounts: TotalAmounts = {};
-  
-    
+
     groups.forEach((group) => {
       let allGroupsTotalAmountFriend = group.howSpent
         ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
@@ -52,11 +54,13 @@ const FriendActiveState: React.FC = () => {
             : sum;
         }, 0);
 
-
       paids.forEach((paid) => {
         if (paid.whoPaid === user.name && paid.groupName === group.groupName) {
           allGroupsTotalAmountFriend -= paid.howMuchPaid;
-        } else if (paid.toWho === user.name && paid.groupName === group.groupName) {
+        } else if (
+          paid.toWho === user.name &&
+          paid.groupName === group.groupName
+        ) {
           allGroupsTotalAmountFriend += paid.howMuchPaid;
         }
       });
@@ -74,11 +78,10 @@ const FriendActiveState: React.FC = () => {
       (acc, value) => acc + value,
       0
     );
- 
+
     setTotalAmountFriend(totalAmountWithFriend);
     dispatch(setTotalAmount(totalAmount));
   }, [activeFriend, calculateTotalAmountFriend, dispatch]);
-
 
   return (
     <>
@@ -153,6 +156,6 @@ const FriendActiveState: React.FC = () => {
       )}
     </>
   );
-};
+}
 
-export default FriendActiveState;
+export const FriendActiveState = memo(FriendActiveStateComponent);

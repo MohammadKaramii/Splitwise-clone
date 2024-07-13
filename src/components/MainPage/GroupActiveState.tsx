@@ -1,12 +1,10 @@
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useMemo,  useEffect } from "react";
-import ListGroupCard from "./ListGroupCard";
+import { useMemo, useEffect, memo } from "react";
+import {ListGroupCard} from "./ListGroupCard";
 import { uid } from "uid";
 
-const GroupActiveState = () => {
-
- 
+function GroupActiveStateComponent() {
   const groups = useSelector((state: RootState) => state.groups.groups);
   const paids = useSelector((state: RootState) => state.paids);
   const activeGroupName = useSelector(
@@ -18,7 +16,6 @@ const GroupActiveState = () => {
   );
   const spents = useSelector((state: RootState) => state.spents);
 
-  
   const totalAmount = useMemo(
     () =>
       activeGroup
@@ -33,14 +30,6 @@ const GroupActiveState = () => {
     }
   }, [activeGroup]);
 
- 
-
-
-
-
-
-
-
   return (
     <div className="container d-flex flex-column">
       <ul className="list-group mt-2 mx-2">
@@ -51,16 +40,16 @@ const GroupActiveState = () => {
               members={data.sharedWith}
               totalAmount={totalAmount}
             />
-
-
           </li>
         ))}
       </ul>
       <ul className="paid-list">
-          {paids ? (
-            <>
-              <h5>Transactions</h5>
-              {paids.filter((paid)=> paid.groupName === activeGroupName).map((member) => {
+        {paids ? (
+          <>
+            <h5>Transactions</h5>
+            {paids
+              .filter((paid) => paid.groupName === activeGroupName)
+              .map((member) => {
                 return paids ? (
                   <li className="paid-person-container" key={uid()}>
                     <i className="fa-regular fa-circle-check mx-1"></i>
@@ -69,16 +58,16 @@ const GroupActiveState = () => {
                     </span>
                     <span className=""> paid his share of </span>
                     <strong>${member.howMuchPaid}</strong>
-                    <span className=""> to  </span>
+                    <span className=""> to </span>
                     <strong>{member.toWho}</strong>
                   </li>
                 ) : null;
               })}
-            </>
-          ) : null}
-        </ul>
+          </>
+        ) : null}
+      </ul>
     </div>
   );
-};
+}
 
-export default GroupActiveState;
+export const GroupActiveState = memo(GroupActiveStateComponent);

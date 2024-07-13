@@ -1,59 +1,62 @@
 import "./MainPage.css";
-import { useSelector} from "react-redux";
-import GroupActiveState from "./GroupActiveState";
-import FriendActiveSatate from "./FriendActiveState";
+import { useSelector } from "react-redux";
+import { GroupActiveState } from "./GroupActiveState";
+import { FriendActiveState } from "./FriendActiveState";
 import { Link } from "react-router-dom";
 import { RootState } from "../../redux/store";
 import toast from "react-hot-toast";
-import { useMemo } from "react";
-const MiddleComponent = () => {
+import { memo, useMemo } from "react";
+
+function SpentsComponent() {
   const user = useSelector((state: RootState) => state.userData.user);
   const paids = useSelector((state: RootState) => state.paids);
-  const paidToCurrentUser = paids?.filter((paid) => paid.toWho === user.name && paid.groupName === user.activeGroup);
-  const currentUserPaid = paids?.filter((paid) => paid.whoPaid === user.name && paid.groupName === user.activeGroup);
+  const paidToCurrentUser = paids?.filter(
+    (paid) => paid.toWho === user.name && paid.groupName === user.activeGroup
+  );
+  const currentUserPaid = paids?.filter(
+    (paid) => paid.whoPaid === user.name && paid.groupName === user.activeGroup
+  );
   const spents = useSelector((state: RootState) => state.spents);
-
-
 
   const totalAmount = useMemo(() => {
     let calculatedAmount =
-    spents?.reduce((sum, item) => {
+      spents?.reduce((sum, item) => {
         if (item.whoPaid === user.name) {
           return (
             sum +
             Number(
-              (item?.cost - item?.cost / (item.sharedWith?.length + 1)).toFixed(2)
+              (item?.cost - item?.cost / (item.sharedWith?.length + 1)).toFixed(
+                2
+              )
             )
           );
         } else {
           return (
-            sum - Number((item?.cost / (item.sharedWith?.length + 1)).toFixed(2))
+            sum -
+            Number((item?.cost / (item.sharedWith?.length + 1)).toFixed(2))
           );
         }
       }, 0) || 0;
 
-      if (paidToCurrentUser) {
-        
-        const demands = paidToCurrentUser.reduce(
-          (total, paid) => total + paid.howMuchPaid,
-          0
-        );
-       
-        calculatedAmount -= demands
-      }
+    if (paidToCurrentUser) {
+      const demands = paidToCurrentUser.reduce(
+        (total, paid) => total + paid.howMuchPaid,
+        0
+      );
 
-      if (currentUserPaid) {
-        const debts = currentUserPaid.reduce(
-          (total, paid) => total + paid.howMuchPaid,
-          0
-        );
-        calculatedAmount += debts
+      calculatedAmount -= demands;
+    }
 
-      }
+    if (currentUserPaid) {
+      const debts = currentUserPaid.reduce(
+        (total, paid) => total + paid.howMuchPaid,
+        0
+      );
+      calculatedAmount += debts;
+    }
 
-      return calculatedAmount;
+    return calculatedAmount;
   }, [spents, paidToCurrentUser, currentUserPaid, user.name]);
-
 
   return (
     <section className="middle-component-container">
@@ -196,9 +199,9 @@ const MiddleComponent = () => {
       )}
 
       {user.activeGroup && <GroupActiveState />}
-      {user.activeFriend && <FriendActiveSatate />}
+      {user.activeFriend && <FriendActiveState />}
     </section>
   );
-};
+}
 
-export default MiddleComponent;
+export const Spents = memo(SpentsComponent);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   setSignInUserData,
@@ -11,14 +11,9 @@ import toast from "react-hot-toast";
 import { setSpents } from "../../redux/reducers/spentsSlice";
 import { RootState } from "../../redux/store";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
+import { Group } from "../../types";
 
-interface Group {
-  id: string;
-  groupName: string;
-  friends: string[];
-}
-
-const GroupsAndFriends = () => {
+function GroupsAndFriendsComponent() {
   const userData = useSelector(selectUserData);
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.userData.user);
@@ -29,68 +24,72 @@ const GroupsAndFriends = () => {
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
   const fetchGroupsData = useCallback(async () => {
-    // Fetch groups data
     const groupsResponse = await supabase
-        .from("groups")
-        .select("*")
-        .eq("userId", userData.id);
+      .from("groups")
+      .select("*")
+      .eq("userId", userData.id);
     const { data: groupsData, error: groupsError } = groupsResponse;
 
     if (groupsError) {
-        throw new Error(groupsError.message);
+      throw new Error(groupsError.message);
     }
 
     setGroups(groupsData || []);
     dispatch(setGroupData(groupsData));
-},[dispatch, userData.id])
+  }, [dispatch, userData.id]);
 
-const fetchPaidsData = useCallback(async () => {
-    // Fetch paids data
+  const fetchPaidsData = useCallback(async () => {
     const paidsResponse = await supabase
-        .from("myPaids")
-        .select("*")
-        .eq("userId", userData.id);
+      .from("myPaids")
+      .select("*")
+      .eq("userId", userData.id);
     const { data: paids, error: paidsError } = paidsResponse;
 
     if (paidsError) {
-        throw new Error(paidsError.message);
+      throw new Error(paidsError.message);
     }
 
     dispatch(setAddPayment(paids[0]?.paids || []));
-},[dispatch, userData.id])
+  }, [dispatch, userData.id]);
 
-const fetchSpentsData = useCallback(async () => {
-    // Fetch spents data
+  const fetchSpentsData = useCallback(async () => {
     const spentsResponse = await supabase
-        .from("groups")
-        .select("howSpent")
-        .eq("groupName", user.activeGroup)
-        .eq("userId", userData.id);
+      .from("groups")
+      .select("howSpent")
+      .eq("groupName", user.activeGroup)
+      .eq("userId", userData.id);
     const { data: spents, error: spentsError } = spentsResponse;
 
     if (spentsError) {
-        throw new Error(spentsError.message);
+      throw new Error(spentsError.message);
     }
 
     dispatch(setSpents(spents[0]?.howSpent || []));
-}, [dispatch, user.activeGroup, userData.id]);
+  }, [dispatch, user.activeGroup, userData.id]);
 
-useEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
-        try {
-            await fetchGroupsData();
-            await fetchPaidsData();
+      try {
+        await fetchGroupsData();
+        await fetchPaidsData();
 
-            if (user.activeGroup) {
-                await fetchSpentsData();
-            }
-        } catch (error) {
-            console.error("Error fetching data:", error);
+        if (user.activeGroup) {
+          await fetchSpentsData();
         }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
     };
 
     fetchData();
-}, [dispatch, fetchGroupsData, fetchPaidsData, fetchSpentsData, user.activeGroup, userData.id]);
+  }, [
+    dispatch,
+    fetchGroupsData,
+    fetchPaidsData,
+    fetchSpentsData,
+    user.activeGroup,
+    userData.id,
+  ]);
   const uniqueFriends = useMemo(() => {
     const friends = groups.map((group) => group.friends);
     return Array.from(new Set(friends.flat()));
@@ -161,7 +160,6 @@ useEffect(() => {
     setGroupToDelete(null);
     setShowConfirmation(false);
   }, []);
-
 
   return (
     <div className="right-contianer p-3">
@@ -243,6 +241,6 @@ useEffect(() => {
       </div>
     </div>
   );
-};
+}
 
-export default GroupsAndFriends;
+export const GroupsAndFriends = memo(GroupsAndFriendsComponent);

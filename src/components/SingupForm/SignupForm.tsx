@@ -1,107 +1,104 @@
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import "./SignupForm.css";
 import validator from "validator";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { setSignInUserData } from "../../redux/reducers/userDataSlice";
-import SuccessLoginMessage from "../SuccessMessage";
+import { SuccessLoginMessage } from "../SuccessMessage";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import ReCAPTCHA from "react-google-recaptcha";
-import Loading from "../Loading";
-interface Errors {
-  name?: string;
-  email?: string;
-  password?: string;
-  recaptcha?: string;
-}
+import { Loading } from "../Loading";
+import { ErrorsSignup } from "../../types";
 
-const SignupForm = () => {
+function SignupFormComponent() {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.userData.user);
   const [ifFilled, setIfFilled] = useState(false);
   const [isErrors, setIsErrors] = useState(false);
-  const [errors, setErrors] = useState<Errors>({});
+  const [errors, setErrors] = useState<ErrorsSignup>({});
   const [isActive, setIsActive] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRecaptchaVerified, setIsRecaptchaVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isActive) {
-      if (name === "" || name.trim() === "") {
-        errors.name = "First name can't be blank";
-      }
 
-      if (!validator.isEmail(email)) {
-        errors.email = "Please enter a valid email address.";
-      }
-
-      if (password.length < 8) {
-        errors.password = "Password is too short (minimum is 8 characters)";
-      }
-
-      if (!isRecaptchaVerified) {
-        errors.recaptcha = "Please verify that you are not a robot.";
-      }
-
-      if (Object.keys(errors).length === 0) {
-        try {
-          
-              setIsLoading(true)
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                name: name,
-              },
-            },
-          });
-
-          if (error) {
-            throw new Error("Sign up failed. Please try again.");
-          } else if (data) {
-            dispatch(
-              setSignInUserData({
-                name: data.user?.user_metadata.name,
-                email: email,
-                isSignIn: true,
-                id: data.user?.id
-              })
-            );
-          }
-        } catch (error) {
-          console.error("Signup error:", error);
-          setIsErrors(true);
-          setIfFilled(true);
-          return;
-        }finally {
-          setIsLoading(false);
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (isActive) {
+        if (name === "" || name.trim() === "") {
+          errors.name = "First name can't be blank";
         }
+
+        if (!validator.isEmail(email)) {
+          errors.email = "Please enter a valid email address.";
+        }
+
+        if (password.length < 8) {
+          errors.password = "Password is too short (minimum is 8 characters)";
+        }
+
+        if (!isRecaptchaVerified) {
+          errors.recaptcha = "Please verify that you are not a robot.";
+        }
+
+        if (Object.keys(errors).length === 0) {
+          try {
+            setIsLoading(true);
+            const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  name: name,
+                },
+              },
+            });
+
+            if (error) {
+              throw new Error("Sign up failed. Please try again.");
+            } else if (data) {
+              dispatch(
+                setSignInUserData({
+                  name: data.user?.user_metadata.name,
+                  email: email,
+                  isSignIn: true,
+                  id: data.user?.id,
+                })
+              );
+            }
+          } catch (error) {
+            console.error("Signup error:", error);
+            setIsErrors(true);
+            setIfFilled(true);
+            return;
+          } finally {
+            setIsLoading(false);
+          }
+        }
+
+        setErrors(errors);
+        setIsErrors(true);
+        setIfFilled(true);
       }
+    },
+    []
+  );
 
-      setErrors(errors);
-      setIsErrors(true);
-      setIfFilled(true);
-    }
-  };
-
-  
-
-  const handleRecaptchaChange = (value: string | null) => {
-    setIsRecaptchaVerified(!!value);
-  };
-
-
+  const handleRecaptchaChange = useCallback(
+    (value: string | null) => {
+      setIsRecaptchaVerified(!!value);
+    },
+    [setIsRecaptchaVerified]
+  );
 
   return (
     <>
-      {isLoading ? ( 
-        <Loading /> 
+      {isLoading ? (
+        <Loading />
       ) : user.isSignIn ? (
         <SuccessLoginMessage />
       ) : (
@@ -230,6 +227,6 @@ const SignupForm = () => {
       )}
     </>
   );
-};
+}
 
-export default SignupForm;
+export const SignupForm = memo(SignupFormComponent);

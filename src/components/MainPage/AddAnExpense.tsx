@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import validator from "validator";
 import { useDispatch, useSelector } from "react-redux";
 import { updateGroup } from "../../redux/reducers/groupSlice";
@@ -7,33 +7,11 @@ import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { uid } from "uid";
-import Loading from "../Loading";
+import {Loading} from "../Loading";
 import { setSpents } from "../../redux/reducers/spentsSlice";
+import { FormData, HowSpent, Errors } from "../../types";
 
-interface Errors {
-  description?: string;
-  cost?: string;
-  whoPaid?: string;
-  sharedWith?: string;
-}
-
-interface FormData {
-  description?: string;
-  cost?: string;
-  errors: Errors;
-  isErrors: boolean;
-}
-
-interface HowSpent {
-  createdAt: string;
-  message?: string;
-  cost?: number;
-  id?: string;
-  whoPaid?: string;
-  sharedWith: string[];
-}
-
-const AddAnExpense = () => {
+function AddAnExpenseComponent() {
   const user = useSelector((state: RootState) => state.userData.user);
   const activeGroup = user.activeGroup;
   const groups = useSelector((state: RootState) => state.groups.groups);
@@ -165,9 +143,21 @@ const AddAnExpense = () => {
       });
       setIsLoading(false);
     },
-    [description, cost, whoPaid, user.name, user.id, selectedFriends, dispatch, spents, groups, activeGroup, formData, navigate]
+    [
+      description,
+      cost,
+      whoPaid,
+      user.name,
+      user.id,
+      selectedFriends,
+      dispatch,
+      spents,
+      groups,
+      activeGroup,
+      formData,
+      navigate,
+    ]
   );
-
 
   return (
     <>
@@ -298,6 +288,6 @@ const AddAnExpense = () => {
       </div>
     </>
   );
-};
+}
 
-export default AddAnExpense;
+export const AddAnExpense = memo(AddAnExpenseComponent);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import "./HomePage.css";
 import { Link } from "react-router-dom";
 import image1 from "../../assets/images/image1.png";
@@ -8,19 +8,16 @@ import image4 from "../../assets/images/image4.png";
 import image5 from "../../assets/images/image5.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "../../assets/icons";
-import Header from "../Header/Header";
+import { Header } from "../Header/Header";
 
-const HomePage = () => {
+function Home() {
   const [activeIndex, setActiveIndex] = useState(0);
-
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveIndex((prevIndex) => (prevIndex + 1) % icons.length);
     }, 2000);
-
     return () => clearInterval(interval);
   }, []);
-
 
   return (
     <>
@@ -28,21 +25,15 @@ const HomePage = () => {
       <section className="home-row1 background w-100">
         <div className=" info text-start">
           <div className="home-info">
-            <strong className="heading h1">
-              Less stress when sharing expenses
-            </strong>
-            <h1 className={` heading ${icons[activeIndex].textColor}`}>
-              {icons[activeIndex].title}
-            </h1>
+            <strong className="heading h1">Less stress when sharing expenses</strong>
+            <h1 className={` heading ${icons[activeIndex].textColor}`}>{icons[activeIndex].title}</h1>
 
             <ul className="Home-pg-icons">
               {icons.map((item, index) => (
                 <li key={index}>
                   <FontAwesomeIcon
                     icon={item.icon}
-                    color={
-                      index === activeIndex ? item.colors[0] : item.colors[1]
-                    }
+                    color={index === activeIndex ? item.colors[0] : item.colors[1]}
                     fontSize={48}
                   />
                 </li>
@@ -50,20 +41,16 @@ const HomePage = () => {
             </ul>
 
             <p className="description">
-              Keep track of your shared expenses and balances with housemates,
-              trips, groups, friends, and family.
+              Keep track of your shared expenses and balances with housemates, trips, groups, friends, and family.
             </p>
             <Link to="/signup" className="home-signup-btn">
-              <button
-                type="button"
-                className="btn btn-success btn-primary-dark mb-4 btn-lg"
-              >
+              <button type="button" className="btn btn-success btn-primary-dark mb-4 btn-lg">
                 Sign up
               </button>
             </Link>
             <p>
-              Free for <i className="fa-brands fa-apple"></i> iphone,{" "}
-              <i className="fa-brands fa-android"> </i> Android and web.
+              Free for <i className="fa-brands fa-apple"></i> iphone, <i className="fa-brands fa-android"> </i> Android
+              and web.
             </p>
           </div>
           <div className="large-palne d-none d-lg-block">
@@ -115,9 +102,7 @@ const HomePage = () => {
             <div className="card text-center box-bg fill-orange">
               <div className="card-body">
                 <strong className="card-title">Add expenses easily</strong>
-                <p className="card-text text-center mt-2">
-                  Quickly add expenses on the go before you forget who paid.
-                </p>
+                <p className="card-text text-center mt-2">Quickly add expenses on the go before you forget who paid.</p>
               </div>
               <div>
                 <img className=" mt-3" src={image3} />
@@ -144,8 +129,7 @@ const HomePage = () => {
               <div>
                 <strong className="card-title">Get even more with PRO</strong>
                 <p className="card-text text-center mt-2">
-                  Get even more organized with receipt scanning, charts and
-                  graphs, currency conversion, and more!
+                  Get even more organized with receipt scanning, charts and graphs, currency conversion, and more!
                 </p>
                 <div className="btn">
                   <Link to="/signup">
@@ -162,6 +146,6 @@ const HomePage = () => {
       </section>
     </>
   );
-};
+}
 
-export default HomePage;
+export const HomePage = memo(Home);

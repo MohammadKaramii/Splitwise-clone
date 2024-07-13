@@ -1,37 +1,48 @@
-import { useState } from "react";
-import Header from "../Header/Header";
+import { memo, useCallback, useState } from "react";
+import { Header } from "../Header/Header";
 import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
 import { useNavigate } from "react-router-dom";
 import "./UpdatePassword.css";
-const UpdatePassword = () => {
+function UpdatePasswordComponent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
 
-  const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(event.target.value);
-  };
+  const handlePasswordChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setPassword(event.target.value);
+    },
+    [setPassword]
+  );
 
-  const handleConfirmPasswordChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setConfirmPassword(event.target.value);
-  };
+  const handleConfirmPasswordChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setConfirmPassword(event.target.value);
+    },
+    [setConfirmPassword]
+  );
 
-  const handleSubmit = async (event: React.ChangeEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (password === confirmPassword) {
-      await supabase.auth.updateUser({ password: password });
-
-      toast.success("Password updated successfully!");
-      setPassword("");
-      setConfirmPassword("");
-      navigate("/login");
-    } else {
-      toast.error("Passwords do not match!");
-    }
-  };
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (password === confirmPassword) {
+        try {
+          await supabase.auth.updateUser({ password });
+          toast.success("Password updated successfully!");
+          setPassword("");
+          setConfirmPassword("");
+          navigate("/login");
+        } catch (error) {
+          console.error("Error updating password:", error);
+          toast.error("An error occurred while updating the password");
+        }
+      } else {
+        toast.error("Passwords do not match!");
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -66,6 +77,6 @@ const UpdatePassword = () => {
       </div>
     </>
   );
-};
+}
 
-export default UpdatePassword;
+export const UpdatePassword = memo(UpdatePasswordComponent);

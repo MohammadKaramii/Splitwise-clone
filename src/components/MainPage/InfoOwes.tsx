@@ -1,17 +1,13 @@
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
-import Loading from "../Loading";
-interface Paid {
-  whoPaid: string;
-  toWho: string;
-  groupName: string;
-  howMuchPaid: number;
-}
-const InfoOwes = () => {
+import { Paid } from "../../types";
+import {Loading} from "../Loading";
+
+function InfoOwesComponent() {
   const groups = useSelector((state: RootState) => state.groups.groups);
   const user = useSelector((state: RootState) => state.userData.user);
   const activeGroupName = user.activeGroup;
@@ -138,25 +134,28 @@ const InfoOwes = () => {
     [activeGroup?.howSpent, paids, selectedFriend, user.name, activeGroupName]
   );
 
-  const handleSettleMessage = useCallback((member: string, selectedFriend: string) => {
-    setFriend(member);
-    if (Number(calculateTotalAmountFriend(member)) < 0) {
-      setSettleModal(true);
-      setHowMuchSettle(Math.abs(Number(calculateTotalAmountFriend(member))));
-    } else if (Number(calculateTotalAmountFriend(member)) > 0) {
-      toast.error(
-        `${member === user.name ? "You" : member} owes ${
-          selectedFriend === user.name ? "You" : selectedFriend
-        }`
-      );
-    } else {
-      toast.error(
-        `${selectedFriend === user.name ? "You" : selectedFriend}  don't owe ${
-          member === user.name ? "You" : member
-        } anything`
-      );
-    }
-  },[calculateTotalAmountFriend, user.name]);
+  const handleSettleMessage = useCallback(
+    (member: string, selectedFriend: string) => {
+      setFriend(member);
+      if (Number(calculateTotalAmountFriend(member)) < 0) {
+        setSettleModal(true);
+        setHowMuchSettle(Math.abs(Number(calculateTotalAmountFriend(member))));
+      } else if (Number(calculateTotalAmountFriend(member)) > 0) {
+        toast.error(
+          `${member === user.name ? "You" : member} owes ${
+            selectedFriend === user.name ? "You" : selectedFriend
+          }`
+        );
+      } else {
+        toast.error(
+          `${
+            selectedFriend === user.name ? "You" : selectedFriend
+          }  don't owe ${member === user.name ? "You" : member} anything`
+        );
+      }
+    },
+    [calculateTotalAmountFriend, user.name]
+  );
 
   const handleSettleUp = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -512,6 +511,6 @@ const InfoOwes = () => {
       )}
     </>
   );
-};
+}
 
-export default InfoOwes;
+export const InfoOwes = memo(InfoOwesComponent);

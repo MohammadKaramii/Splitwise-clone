@@ -1,18 +1,16 @@
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import "./HeaderUser.css";
-import {
-  signOutUser,
-  selectUserData,
-} from "../../redux/reducers/userDataSlice";
+import { signOutUser, selectUserData } from "../../redux/reducers/userDataSlice";
+import { memo, useCallback } from "react";
 
-const HeaderUser = () => {
+function HeaderUserComponent() {
+  
   const dispatch = useDispatch();
   const userData = useSelector(selectUserData);
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     dispatch(signOutUser());
-  };
+  }, []);
 
   return (
     <nav className="navbar header">
@@ -26,12 +24,7 @@ const HeaderUser = () => {
         </Link>
         <div className="header-right">
           <div className="dropdown">
-            <button
-              className="btn dropdown-toggle"
-              type="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
+            <button className="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
               <img
                 src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png"
                 alt="User Avatar"
@@ -56,6 +49,6 @@ const HeaderUser = () => {
       </div>
     </nav>
   );
-};
+}
 
-export default HeaderUser;
+export const HeaderUser = memo(HeaderUserComponent);

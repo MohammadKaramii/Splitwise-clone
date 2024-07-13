@@ -1,16 +1,16 @@
 import { Link } from "react-router-dom";
-import Header from "../Header/Header";
+import { Header } from "../Header/Header";
 import "./LoginForm.css";
 import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "../../../supabase";
 import { setSignInUserData } from "../../redux/reducers/userDataSlice";
 import { useDispatch, useSelector } from "react-redux";
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { RootState } from "../../redux/store";
-import SuccessLoginMessage from "../SuccessMessage";
+import { SuccessLoginMessage } from "../SuccessMessage";
 import { toast } from "react-hot-toast";
-import Loading from "../Loading";
-const LoginForm = () => {
+import { Loading } from "../Loading";
+function LoginFormComponent() {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const dispatch = useDispatch();
   const [email, setEmail] = useState("");
@@ -19,57 +19,57 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const user = useSelector((state: RootState) => state.userData.user);
 
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
 
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!isRecaptchaVerified) {
-      toast.error("Please verify that you are not a robot.", {
-        duration: 4000,
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true)
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast.error("Invalid credentials. Please try again!", {
+      if (!isRecaptchaVerified) {
+        toast.error("Please verify that you are not a robot.", {
           duration: 4000,
         });
-      } else if (data) {
-        dispatch(
-          setSignInUserData({
-            name: data.user.user_metadata.name,
-            email: email,
-            isSignIn: true,
-            id: data.user.id
-          })
-        );
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("An error occurred. Please try again later!");
-    }finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleRecaptchaChange = (value: string | null) => {
+      try {
+        setIsLoading(true);
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast.error("Invalid credentials. Please try again!", {
+            duration: 4000,
+          });
+        } else if (data) {
+          dispatch(
+            setSignInUserData({
+              name: data.user.user_metadata.name,
+              email: email,
+              isSignIn: true,
+              id: data.user.id,
+            })
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("An error occurred. Please try again later!");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleRecaptchaChange = useCallback((value: string | null) => {
     setIsRecaptchaVerified(!!value);
-  };
-
+  }, []);
 
   return (
     <>
-      {isLoading ? ( 
-        <Loading /> 
+      {isLoading ? (
+        <Loading />
       ) : user.isSignIn ? (
         <SuccessLoginMessage />
       ) : (
@@ -122,8 +122,6 @@ const LoginForm = () => {
                             Forgot your password?
                           </p>
                         </Link>
-
-        
                       </div>
                     </form>
                   </div>
@@ -135,6 +133,6 @@ const LoginForm = () => {
       )}
     </>
   );
-};
+}
 
-export default LoginForm;
+export const LoginForm = memo(LoginFormComponent);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { setGroupData } from "../../redux/reducers/groupSlice";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
@@ -7,9 +7,9 @@ import { uid } from "uid";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import Loading from "../Loading";
+import {Loading} from "../Loading";
 
-const AddGroup = () => {
+function AddGroupComponent  () {
   const [isActive, setIsActive] = useState(false);
   const [groupName, setGroupName] = useState("");
   const userData = useSelector(selectUserData);
@@ -194,4 +194,4 @@ const AddGroup = () => {
   );
 };
 
-export default AddGroup;
+export const AddGroup = memo(AddGroupComponent);
