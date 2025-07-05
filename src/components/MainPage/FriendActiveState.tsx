@@ -3,6 +3,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { RootState } from "../../redux/store";
 import { setTotalAmount } from "../../redux/reducers/totalAmonutSlice";
+import {
+  calculatePairwiseBalance,
+  Expense,
+} from "../../utils/balanceCalculations";
 
 interface TotalAmounts {
   [key: string]: number;
@@ -43,34 +47,69 @@ function FriendActiveStateComponent() {
     const totalAmounts: TotalAmounts = {};
 
     groups.forEach((group) => {
-      let allGroupsTotalAmountFriend = group.howSpent
-        ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
-        .reduce((sum, item) => {
-          const shareAmount = item.cost / (item.sharedWith.length || 1);
-          return item.whoPaid === user.name
-            ? sum - shareAmount
-            : item.whoPaid === activeFriend
-            ? sum + shareAmount
-            : sum;
-        }, 0);
+      // Convert group expenses to the universal format
+      const expenses: Expense[] =
+        group.howSpent
+          ?.filter(
+            (howSpent) =>
+              howSpent.sharedWith.includes(activeFriend) ||
+              howSpent.sharedWith.includes(user.name) ||
+              howSpent.whoPaid === activeFriend ||
+              howSpent.whoPaid === user.name
+          )
+          .map((howSpent) => ({
+            cost: howSpent.cost,
+            whoPaid: howSpent.whoPaid,
+            sharedWith: howSpent.sharedWith,
+          })) || [];
 
-      paids.forEach((paid) => {
-        if (paid.whoPaid === user.name && paid.groupName === group.groupName) {
-          allGroupsTotalAmountFriend -= paid.howMuchPaid;
-        } else if (
-          paid.toWho === user.name &&
-          paid.groupName === group.groupName
-        ) {
-          allGroupsTotalAmountFriend += paid.howMuchPaid;
-        }
-      });
-      totalAmounts[group.groupName] = Number(
-        allGroupsTotalAmountFriend ? allGroupsTotalAmountFriend.toFixed(2) : 0
+      // Filter payments for this group
+      const groupPayments = paids.filter(
+        (paid) => paid.groupName === group.groupName
       );
+
+      // Calculate pairwise balance between user and friend for this group
+      const balance = calculatePairwiseBalance(
+        user.name,
+        activeFriend,
+        expenses,
+        groupPayments
+      );
+
+      totalAmounts[group.groupName] = Number(balance.toFixed(2));
     });
 
     return totalAmounts;
   }, [activeFriend, groups, paids, user.name]);
+
+  // Helper function to get display name (can be customized for different perspectives)
+  const getDisplayName = useCallback(
+    (userName: string, viewingUser: string) => {
+      return userName === viewingUser ? "You" : userName;
+    },
+    []
+  );
+
+  // Helper function to get debt description universally
+  const getDebtDescription = useCallback(
+    (balance: number, userA: string, userB: string, viewingUser: string) => {
+      if (balance === 0) {
+        return `${getDisplayName(userA, viewingUser)} and ${getDisplayName(
+          userB,
+          viewingUser
+        )} are settled up`;
+      } else if (balance > 0) {
+        return `${getDisplayName(userA, viewingUser)} owe${
+          userA === viewingUser ? "" : "s"
+        } ${getDisplayName(userB, viewingUser)}`;
+      } else {
+        return `${getDisplayName(userB, viewingUser)} owe${
+          userB === viewingUser ? "" : "s"
+        } ${getDisplayName(userA, viewingUser)}`;
+      }
+    },
+    [getDisplayName]
+  );
 
   useEffect(() => {
     const totalAmountWithFriend = calculateTotalAmountFriend();
@@ -120,19 +159,21 @@ function FriendActiveStateComponent() {
                     >
                       <div
                         className={`${
-                          totalAmountFriend[group.groupName] < 0
-                            ? "lent-you"
-                            : totalAmountFriend[group.groupName] > 0
+                          totalAmountFriend[group.groupName] > 0
                             ? "you-lent"
+                            : totalAmountFriend[group.groupName] < 0
+                            ? "lent-you"
                             : "price-zero"
                         }`}
                       >
                         <p>
-                          {totalAmountFriend[group.groupName] < 0
-                            ? `${activeFriend} owes You`
-                            : totalAmountFriend[group.groupName] > 0
-                            ? `You owes ${activeFriend}`
-                            : "There is no owe"}
+                          {activeFriend &&
+                            getDebtDescription(
+                              totalAmountFriend[group.groupName],
+                              user.name,
+                              activeFriend,
+                              user.name
+                            )}
                         </p>
                         <strong>
                           ${Math.abs(totalAmountFriend[group.groupName])}
@@ -149,7 +190,13 @@ function FriendActiveStateComponent() {
                 className="my-5 w-25"
                 alt="checkmark-icon"
               />
-              <p>You and {activeFriend} are all settled up.</p>
+              <p>
+                {getDisplayName(user.name, user.name)} and{" "}
+                {activeFriend
+                  ? getDisplayName(activeFriend, user.name)
+                  : "your friend"}{" "}
+                are all settled up.
+              </p>
             </div>
           )}
         </div>

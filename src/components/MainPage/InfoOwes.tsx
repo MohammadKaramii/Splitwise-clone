@@ -1,11 +1,16 @@
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useState, useMemo, useCallback, useRef, memo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
 import { Paid } from "../../types";
 import { Loading } from "../Loading";
+import {
+  calculatePairwiseBalance,
+  Expense,
+} from "../../utils/balanceCalculations";
+import { GroupBalanceDetails } from "./GroupBalanceDetails";
 
 function InfoOwesComponent() {
   const groups = useSelector((state: RootState) => state.groups.groups);
@@ -17,10 +22,8 @@ function InfoOwesComponent() {
   );
 
   const friends = activeGroup ? activeGroup.friends : [];
-  const totalAmount = useSelector((state: RootState) => state.totalAmonut);
+
   const dispatch = useDispatch();
-  const modalRef = useRef(null);
-  const [isOpen, setIsOpen] = useState(false);
   const [settleModal, setSettleModal] = useState(false);
   const [howMuchSettle, setHowMuchSettle] = useState(0);
   const [settleAmount, setSettleAmount] = useState(0);
@@ -30,132 +33,68 @@ function InfoOwesComponent() {
   const paids = useSelector((state: RootState) => state.paids);
   const spents = useSelector((state: RootState) => state.spents);
 
-  const calculateTotalAmount = useCallback(
-    (whoPaid: string) => {
-      if (!activeGroup) {
-        return 0;
-      }
-      const paidToCurrentUser = paids?.filter(
-        (paid) => paid.toWho === whoPaid && paid.groupName === activeGroupName
-      );
+  // Convert expenses to the format expected by balance calculations (current group)
+  const expenses: Expense[] = useMemo(() => {
+    if (!spents) return [];
+    return spents.map((spent) => ({
+      cost: spent.cost,
+      whoPaid: spent.whoPaid,
+      sharedWith: spent.sharedWith as string[],
+    }));
+  }, [spents]);
 
-      const currentUserPaid = paids?.filter(
-        (paid) => paid.whoPaid === whoPaid && paid.groupName === activeGroupName
-      );
+  // Get all expenses across all groups for comprehensive summary
+  const allExpenses: Expense[] = useMemo(() => {
+    if (!groups) return [];
+    return groups.flatMap((group) =>
+      (group.howSpent || []).map((spent) => ({
+        cost: spent.cost,
+        whoPaid: spent.whoPaid,
+        sharedWith: spent.sharedWith as string[],
+      }))
+    );
+  }, [groups]);
 
-      let totalAmount = spents?.reduce((sum, item) => {
-        const isPayerInSharedWith =
-          item.sharedWith && (item.sharedWith as string[]).includes(whoPaid);
-        const shareAmount = isPayerInSharedWith
-          ? Number((item.cost / (item.sharedWith?.length || 1)).toFixed(2))
-          : 0;
+  // Filter payments for current group
+  const groupPayments = useMemo(() => {
+    return paids?.filter((paid) => paid.groupName === activeGroupName) || [];
+  }, [paids, activeGroupName]);
 
-        if (item.whoPaid === whoPaid) {
-          // If this person paid but is not in sharedWith, they get back the full amount
-          // If they paid and are in sharedWith, they get back (cost - their share)
-          return sum + (item.cost - shareAmount);
-        }
+  // All payments across all groups
+  const allPayments = useMemo(() => {
+    return paids || [];
+  }, [paids]);
 
-        if (isPayerInSharedWith) {
-          // If someone else paid and this person is in sharedWith, they owe their share
-          return sum - shareAmount;
-        }
-        return sum;
-      }, 0);
+  // Get all group members including the current user
+  const allGroupMembers = useMemo(() => {
+    return activeGroup ? [user.name, ...activeGroup.friends] : [user.name];
+  }, [activeGroup, user.name]);
 
-      if (paidToCurrentUser) {
-        totalAmount -= paidToCurrentUser.reduce(
-          (total, paid) => total + paid.howMuchPaid,
-          0
-        );
-      }
-
-      if (currentUserPaid) {
-        totalAmount += currentUserPaid.reduce(
-          (total, paid) => total + paid.howMuchPaid,
-          0
-        );
-      }
-
-      return Number(totalAmount).toFixed(2);
+  /**
+   * Calculate how much one user owes another
+   * Positive = userA owes userB, Negative = userB owes userA
+   */
+  const calculatePairwiseDebt = useCallback(
+    (userA: string, userB: string) => {
+      return calculatePairwiseBalance(userA, userB, expenses, groupPayments);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeGroup, activeGroupName, paids, spents, user.name]
+    [expenses, groupPayments]
   );
 
-  const calculateTotalAmountFriend = useCallback(
-    (friend: string) => {
-      const currentHowSpents = activeGroup?.howSpent?.filter(
-        (howSpent) =>
-          (howSpent.sharedWith.includes(friend) &&
-            howSpent.sharedWith.includes(selectedFriend)) ||
-          friend === user.name ||
-          selectedFriend === user.name
-      );
+  const handleSettleClick = useCallback(
+    (debtor: string, creditor: string) => {
+      setSelectedFriend(creditor);
+      setFriend(debtor);
+      const debt = calculatePairwiseDebt(debtor, creditor);
 
-      const totalAmounts = currentHowSpents?.length
-        ? currentHowSpents.reduce((sum, item) => {
-            const shareAmount = item.cost / (item.sharedWith.length || 1);
-
-            if (friend === selectedFriend) {
-              return 0;
-            }
-
-            return item.whoPaid === friend
-              ? sum - shareAmount
-              : item.whoPaid === selectedFriend
-              ? sum + shareAmount
-              : sum;
-          }, 0)
-        : 0;
-
-      const demands =
-        paids
-          ?.filter(
-            (payment) =>
-              payment.whoPaid === selectedFriend &&
-              payment.toWho === friend &&
-              payment.groupName === activeGroupName
-          )
-          .reduce((total, payment) => total + payment.howMuchPaid, 0) || 0;
-
-      const debts =
-        paids
-          ?.filter(
-            (payment) =>
-              payment.whoPaid === friend &&
-              payment.toWho === selectedFriend &&
-              payment.groupName === activeGroupName
-          )
-          .reduce((total, payment) => total + payment.howMuchPaid, 0) || 0;
-
-      return Number(totalAmounts + demands - debts).toFixed(2);
-    },
-
-    [activeGroup?.howSpent, paids, selectedFriend, user.name, activeGroupName]
-  );
-
-  const handleSettleMessage = useCallback(
-    (member: string, selectedFriend: string) => {
-      setFriend(member);
-      if (Number(calculateTotalAmountFriend(member)) < 0) {
+      if (Math.abs(debt) > 0.01) {
         setSettleModal(true);
-        setHowMuchSettle(Math.abs(Number(calculateTotalAmountFriend(member))));
-      } else if (Number(calculateTotalAmountFriend(member)) > 0) {
-        toast.error(
-          `${member === user.name ? "You" : member} owes ${
-            selectedFriend === user.name ? "You" : selectedFriend
-          }`
-        );
+        setHowMuchSettle(Math.abs(debt));
       } else {
-        toast.error(
-          `${
-            selectedFriend === user.name ? "You" : selectedFriend
-          }  don't owe ${member === user.name ? "You" : member} anything`
-        );
+        toast.error("No debt to settle between these users");
       }
     },
-    [calculateTotalAmountFriend, user.name]
+    [calculatePairwiseDebt]
   );
 
   const handleSettleUp = useCallback(
@@ -224,7 +163,6 @@ function InfoOwesComponent() {
       }
 
       setSettleModal(false);
-      setIsOpen(false);
       setSettleAmount(0);
       setIsLoading(false);
     },
@@ -244,210 +182,17 @@ function InfoOwesComponent() {
       {isLoading && <Loading />}
       {user.activeGroup && friends.length > 0 && (
         <div className="col mt-3">
-          <h5 className="right-title">GROUP BALANCES</h5>
-          <ul className="list-group list-group-flush text-start">
-            {friends.map((member, index) => (
-              <li
-                className={`right-part-member ${
-                  selectedFriend === member && isOpen ? "active-member" : ""
-                }`}
-                key={member}
-                onClick={() => {
-                  setIsOpen(true);
-                  setSelectedFriend(member);
-                }}
-              >
-                <div className="image">
-                  <img
-                    className="rounded-circle"
-                    src={`https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-grey${
-                      index + 1
-                    }-100px.png`}
-                    alt={member}
-                  />
-                </div>
-                <div className="member-data">
-                  <p>{member}</p>
-                  {Number(calculateTotalAmount(member)) > 0 ? (
-                    <div className="text-success">
-                      gets back ${calculateTotalAmount(member)}
-                    </div>
-                  ) : Number(calculateTotalAmount(member)) < 0 ? (
-                    <div className="text-danger">
-                      owes ${Math.abs(Number(calculateTotalAmount(member)))}
-                    </div>
-                  ) : (
-                    <span className="h5 price-zero">$0.00</span>
-                  )}
-                </div>
-              </li>
-            ))}
-            <li
-              className={`right-part-member ${
-                selectedFriend === user.name && isOpen ? "active-member" : ""
-              }`}
-              onClick={() => {
-                setIsOpen(true);
-                setSelectedFriend(user.name);
-              }}
-            >
-              <div className="image">
-                <img
-                  className="rounded-circle"
-                  src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png"
-                />
-              </div>
-              <div className="member-data">
-                <p>You</p>
-                {Number(calculateTotalAmount(user.name)) > 0 ? (
-                  <div className="text-success">
-                    gets back ${calculateTotalAmount(user.name)}
-                  </div>
-                ) : Number(calculateTotalAmount(user.name)) < 0 ? (
-                  <div className="text-danger">
-                    owes ${Math.abs(Number(calculateTotalAmount(user.name)))}
-                  </div>
-                ) : (
-                  <span className="h6 price-zero">$0.00</span>
-                )}
-              </div>
-            </li>
-          </ul>
-          {isOpen && (
-            <>
-              <div className="modal fade show d-flex ">
-                <div className="modal-dialog modal-dialog-centered">
-                  <div className="modal-content payments-modal" ref={modalRef}>
-                    <div className="modal-header">
-                      <h5 className="modal-title">
-                        Suggested repayments for {activeGroupName}
-                      </h5>
-                      <i
-                        className="fa fa-x text-danger btn border-0 icon-button"
-                        onClick={() => setIsOpen(false)}
-                      />
-                    </div>
-                    <div className="modal-body">
-                      <ul className="list-group justify-content-between repayments">
-                        {friends
-                          .filter((member) => member !== selectedFriend)
-                          .map((member) => (
-                            <li
-                              className={`list-group-item  justify-content-between ${
-                                member === selectedFriend ? "d-none" : ""
-                              }`}
-                            >
-                              <p className="lent-text">
-                                {Number(calculateTotalAmountFriend(member)) <= 0
-                                  ? selectedFriend === user.name
-                                    ? "You"
-                                    : selectedFriend
-                                  : member}{" "}
-                                <strong>
-                                  owes{" "}
-                                  <span
-                                    className={` ${
-                                      Number(
-                                        calculateTotalAmountFriend(member)
-                                      ) > 0
-                                        ? "lent-you"
-                                        : Number(
-                                            calculateTotalAmountFriend(member)
-                                          ) < 0
-                                        ? "you-lent"
-                                        : "price-zero"
-                                    }`}
-                                  >
-                                    {Number(
-                                      calculateTotalAmountFriend(member)
-                                    ) === 0
-                                      ? "nothing"
-                                      : `$${Math.abs(
-                                          Number(
-                                            calculateTotalAmountFriend(member)
-                                          )
-                                        )}`}
-                                  </span>
-                                </strong>{" "}
-                                to{" "}
-                                <strong>
-                                  {Number(calculateTotalAmountFriend(member)) >
-                                  0
-                                    ? selectedFriend === user.name
-                                      ? "You"
-                                      : selectedFriend
-                                    : member}
-                                </strong>
-                              </p>
-                              <button
-                                className="btn btn-mint"
-                                onClick={() =>
-                                  handleSettleMessage(member, selectedFriend)
-                                }
-                              >
-                                Settle up
-                              </button>
-                            </li>
-                          ))}
-
-                        {selectedFriend !== user.name && (
-                          <li className="list-group-item justify-content-between">
-                            <p className="lent-text">
-                              {Number(calculateTotalAmountFriend(user.name)) <=
-                              0
-                                ? selectedFriend
-                                : "You"}{" "}
-                              <strong>
-                                owes{" "}
-                                <span
-                                  className={` ${
-                                    Number(
-                                      calculateTotalAmountFriend(user.name)
-                                    ) > 0
-                                      ? "lent-you"
-                                      : Number(
-                                          calculateTotalAmountFriend(user.name)
-                                        ) < 0
-                                      ? "you-lent"
-                                      : "price-zero"
-                                  }`}
-                                >
-                                  {Number(
-                                    calculateTotalAmountFriend(user.name)
-                                  ) === 0
-                                    ? "nothing"
-                                    : `$${Math.abs(
-                                        Number(
-                                          calculateTotalAmountFriend(user.name)
-                                        )
-                                      )}`}
-                                </span>
-                              </strong>{" "}
-                              to{" "}
-                              <strong>
-                                {Number(calculateTotalAmountFriend(user.name)) >
-                                  0 && selectedFriend !== user.name
-                                  ? selectedFriend
-                                  : "You"}
-                              </strong>
-                            </p>
-                            <button
-                              className="btn btn-mint"
-                              onClick={() =>
-                                handleSettleMessage(user.name, selectedFriend)
-                              }
-                            >
-                              Settle up
-                            </button>
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {/* Use new GroupBalanceDetails for proper pairwise relationships */}
+          <GroupBalanceDetails
+            groupMembers={allGroupMembers}
+            expenses={expenses}
+            payments={groupPayments}
+            viewingUser={user.name}
+            allGroups={groups}
+            allExpenses={allExpenses}
+            allPayments={allPayments}
+            onSettleClick={handleSettleClick}
+          />
         </div>
       )}
       {settleModal && (
@@ -488,26 +233,29 @@ function InfoOwesComponent() {
       )}
 
       {user.activeFriend && (
-        <div
-          className={`right-component container mt-5 right-component-friend  ${
-            totalAmount > 0
-              ? "you-lent"
-              : totalAmount < 0
-              ? "lent-you "
-              : "price-zero"
-          }`}
-        >
-          <h5>YOUR BALANCE</h5>
-          <h6>
-            {totalAmount < 0
-              ? `${user.activeFriend} owes You`
-              : totalAmount > 0
-              ? `You owes ${user.activeFriend}`
-              : "You are all settled up"}
-          </h6>
-          <strong className={totalAmount === 0 ? "d-none" : "d-block"}>
-            ${Math.abs(totalAmount)}
-          </strong>
+        <div className="col mt-3">
+          <GroupBalanceDetails
+            groupMembers={[user.name, user.activeFriend]}
+            expenses={allExpenses.filter(
+              (expense) =>
+                expense.sharedWith.includes(user.name) ||
+                expense.sharedWith.includes(user.activeFriend!) ||
+                expense.whoPaid === user.name ||
+                expense.whoPaid === user.activeFriend!
+            )}
+            payments={allPayments.filter(
+              (payment) =>
+                (payment.whoPaid === user.name &&
+                  payment.toWho === user.activeFriend!) ||
+                (payment.whoPaid === user.activeFriend! &&
+                  payment.toWho === user.name)
+            )}
+            viewingUser={user.name}
+            allGroups={groups}
+            allExpenses={allExpenses}
+            allPayments={allPayments}
+            onSettleClick={handleSettleClick}
+          />
         </div>
       )}
     </>

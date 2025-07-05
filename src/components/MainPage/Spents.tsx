@@ -6,57 +6,37 @@ import { Link } from "react-router-dom";
 import { RootState } from "../../redux/store";
 import toast from "react-hot-toast";
 import { memo, useMemo } from "react";
+import { Expense } from "../../utils/balanceCalculations";
+import { UserBalanceView } from "./UserBalanceView";
 
 function SpentsComponent() {
   const user = useSelector((state: RootState) => state.userData.user);
   const paids = useSelector((state: RootState) => state.paids);
-  const paidToCurrentUser = paids?.filter(
-    (paid) => paid.toWho === user.name && paid.groupName === user.activeGroup
-  );
-  const currentUserPaid = paids?.filter(
-    (paid) => paid.whoPaid === user.name && paid.groupName === user.activeGroup
-  );
   const spents = useSelector((state: RootState) => state.spents);
+  const groups = useSelector((state: RootState) => state.groups.groups);
 
-  const totalAmount = useMemo(() => {
-    let calculatedAmount =
-      spents?.reduce((sum, item) => {
-        if (item.whoPaid === user.name) {
-          // If user paid but is not in sharedWith, they get back the full amount
-          // If user paid and is in sharedWith, they get back (cost - their share)
-          const userShare = (item.sharedWith as string[])?.includes(user.name)
-            ? item?.cost / (item.sharedWith?.length || 1)
-            : 0;
-          return sum + Number((item?.cost - userShare).toFixed(2));
-        } else {
-          // If someone else paid and user is in sharedWith, user owes their share
-          // If user is not in sharedWith, user owes nothing
-          const userShare = (item.sharedWith as string[])?.includes(user.name)
-            ? item?.cost / (item.sharedWith?.length || 1)
-            : 0;
-          return sum - Number(userShare.toFixed(2));
-        }
-      }, 0) || 0;
+  // Convert expenses to the format expected by balance calculations
+  const expenses: Expense[] = useMemo(() => {
+    if (!spents) return [];
+    return spents.map((spent) => ({
+      cost: spent.cost,
+      whoPaid: spent.whoPaid,
+      sharedWith: spent.sharedWith as string[],
+    }));
+  }, [spents]);
 
-    if (paidToCurrentUser) {
-      const demands = paidToCurrentUser.reduce(
-        (total, paid) => total + paid.howMuchPaid,
-        0
-      );
+  // Filter payments for current group
+  const groupPayments = useMemo(() => {
+    return paids?.filter((paid) => paid.groupName === user.activeGroup) || [];
+  }, [paids, user.activeGroup]);
 
-      calculatedAmount -= demands;
-    }
-
-    if (currentUserPaid) {
-      const debts = currentUserPaid.reduce(
-        (total, paid) => total + paid.howMuchPaid,
-        0
-      );
-      calculatedAmount += debts;
-    }
-
-    return calculatedAmount;
-  }, [spents, paidToCurrentUser, currentUserPaid, user.name]);
+  // Get current group members
+  const currentGroupMembers = useMemo(() => {
+    const activeGroup = groups.find(
+      (group) => group.groupName === user.activeGroup
+    );
+    return activeGroup ? [user.name, ...activeGroup.friends] : [user.name];
+  }, [groups, user.activeGroup, user.name]);
 
   return (
     <section className="middle-component-container">
@@ -122,58 +102,20 @@ function SpentsComponent() {
           </div>
         </div>
       </div>
+
+      {/* Use the generalized UserBalanceView for current user */}
       {user.activeGroup && (
-        <table className="table table-bordered">
-          <tbody>
-            <tr>
-              <td scope="col">
-                <div className="flex-grow-1">
-                  <p className="mb-1 font-weight-light">total balance</p>
-                  <p
-                    className={`font-weight-light ${
-                      totalAmount > 0
-                        ? "price"
-                        : totalAmount < 0
-                        ? "price-lose"
-                        : "price-zero"
-                    }`}
-                  >
-                    ${totalAmount ? totalAmount.toFixed(2) : 0}
-                  </p>
-                </div>
-              </td>
-              <td scope="col">
-                <div className="flex-grow-1">
-                  <p className="mb-1 font-weight-light">you owe</p>
-                  <p
-                    className={`font-weight-light ${
-                      totalAmount < 0 ? "price-lose" : "price-zero"
-                    }`}
-                  >
-                    ${totalAmount > 0 ? 0 : totalAmount.toFixed(2)}
-                  </p>
-                </div>
-              </td>
-              <td scope="col">
-                <div className="flex-grow-1">
-                  <p className="mb-1 font-weight-light">you are owed</p>
-                  <p
-                    className={`font-weight-light ${
-                      totalAmount > 0
-                        ? "price"
-                        : totalAmount < 0
-                        ? "price-lose"
-                        : "price-zero"
-                    }`}
-                  >
-                    ${totalAmount < 0 ? 0 : totalAmount.toFixed(2)}
-                  </p>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <UserBalanceView
+          targetUser={user.name}
+          groupMembers={currentGroupMembers}
+          expenses={expenses}
+          payments={groupPayments}
+          viewingUser={user.name}
+          showIndividual={true}
+          showGroupSummary={false}
+        />
       )}
+
       {!user.activeGroup && !user.activeFriend && (
         <div className="row middle-bottom p-4">
           <img
@@ -184,7 +126,7 @@ function SpentsComponent() {
             <h3>Welcome to Splitwise!</h3>
             <p>Splitwise helps you split bills with friends.</p>
             <p>
-              Click “Add an expense” above to get started, or invite some
+              Click "Add an expense" above to get started, or invite some
               friends first!
             </p>
             <div className="signup-btn">
