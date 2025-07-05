@@ -110,6 +110,10 @@ function AddAnExpenseComponent() {
       if (selectedFriends.length === 0) {
         formErrors.sharedWith = "Please choose a friend for share expense";
       }
+      if (selectedFriends.length === 1 && selectedFriends.includes(whoPaid)) {
+        formErrors.sharedWith =
+          "You cannot share an expense only with the payer. Please select at least one other person to share the expense with.";
+      }
 
       if (Object.keys(formErrors).length > 0) {
         setFormData({ ...formData, errors: formErrors, isErrors: true });
