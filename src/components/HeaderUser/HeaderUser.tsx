@@ -1,15 +1,27 @@
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import "./HeaderUser.css";
-import { signOutUser, selectUserData } from "../../redux/reducers/userDataSlice";
+import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { memo, useCallback } from "react";
+import { supabase } from "../../../supabase";
+import toast from "react-hot-toast";
 
 function HeaderUserComponent() {
-  
-  const dispatch = useDispatch();
   const userData = useSelector(selectUserData);
-  const handleLogout = useCallback(() => {
-    dispatch(signOutUser());
+  const handleLogout = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error("Error signing out");
+        console.error("Logout error:", error);
+      } else {
+        // Redux state will be cleared automatically by the auth state listener in App.tsx
+        toast.success("Logged out successfully");
+      }
+    } catch (error) {
+      toast.error("Error signing out");
+      console.error("Logout error:", error);
+    }
   }, []);
 
   return (
@@ -24,7 +36,12 @@ function HeaderUserComponent() {
         </Link>
         <div className="header-right">
           <div className="dropdown">
-            <button className="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <button
+              className="btn dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
               <img
                 src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png"
                 alt="User Avatar"

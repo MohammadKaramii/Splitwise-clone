@@ -14,14 +14,79 @@ import { UpdatePassword } from "./components/UpdatePassword/UpdatePassword";
 import { MainPage } from "./components/MainPage/MainPage";
 import { AddGroup } from "./components/MainPage/AddGroup";
 import { AddAnExpense } from "./components/MainPage/AddAnExpense";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "./redux/store";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+import { supabase } from "../supabase";
+import { setSignInUserData, signOutUser } from "./redux/reducers/userDataSlice";
+import { Loading } from "./components/Loading";
 
 function AppComponent() {
+  const dispatch = useDispatch();
   const isLoggedIn = useSelector(
     (state: RootState) => state.userData.user.isSignIn
   );
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for existing session and set up auth state listener
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("Error getting session:", error);
+        } else if (session) {
+          // User has valid session, restore user data
+          dispatch(
+            setSignInUserData({
+              name: session.user.user_metadata.name || session.user.email,
+              email: session.user.email,
+              isSignIn: true,
+              id: session.user.id,
+            })
+          );
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Set up auth state change listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        dispatch(
+          setSignInUserData({
+            name: session.user.user_metadata.name || session.user.email,
+            email: session.user.email,
+            isSignIn: true,
+            id: session.user.id,
+          })
+        );
+      } else if (event === "SIGNED_OUT") {
+        dispatch(signOutUser());
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [dispatch]);
+
+  // Show loading spinner while checking session
+  if (isLoading) {
+    return <Loading />;
+  }
 
   return (
     <Router>

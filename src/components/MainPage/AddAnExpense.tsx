@@ -5,9 +5,9 @@ import { updateGroup } from "../../redux/reducers/groupSlice";
 import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { uid } from "uid";
-import {Loading} from "../Loading";
+import { Loading } from "../Loading";
 import { setSpents } from "../../redux/reducers/spentsSlice";
 import { FormData, HowSpent, Errors } from "../../types";
 
@@ -30,16 +30,13 @@ function AddAnExpenseComponent() {
   const [whoPaid, setWhoPaid] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroupForExpense, setSelectedGroupForExpense] = useState("");
 
-  const handlePayerSelection = useCallback(
-    (name: string) => {
-      setWhoPaid(name);
-      if (!selectedFriends.includes(name) && name !== user.name) {
-        setSelectedFriends([name]);
-      }
-    },
-    [selectedFriends, user.name]
-  );
+  const handlePayerSelection = useCallback((name: string) => {
+    setWhoPaid(name);
+    // Don't automatically add payer to shared expense list
+    // Users can manually select who shares the expense
+  }, []);
 
   const handleFriendSelection = useCallback(
     (friend: string) => {
@@ -54,10 +51,35 @@ function AddAnExpenseComponent() {
     [selectedFriends]
   );
 
-  const firendsInGroup = useMemo(
-    () => groups.find((group) => group.groupName === activeGroup)?.friends,
-    [groups, activeGroup]
-  );
+  const activeFriend = user.activeFriend;
+
+  // Get groups that contain the active friend, or all groups if no friend is selected
+  const availableGroups = useMemo(() => {
+    if (activeFriend) {
+      return groups.filter((group) => group.friends.includes(activeFriend));
+    }
+    return groups;
+  }, [groups, activeFriend]);
+
+  const firendsInGroup = useMemo((): string[] => {
+    // Use activeGroup if available, otherwise use selectedGroupForExpense
+    const groupName = activeGroup || selectedGroupForExpense;
+    const currentGroup = groups.find((group) => group.groupName === groupName);
+
+    if (!currentGroup) {
+      return [];
+    }
+
+    // Create a complete list of all group members including the current user
+    const allMembers: string[] = [...(currentGroup.friends || [])];
+
+    // Add current user if not already in the friends list
+    if (!allMembers.includes(user.name)) {
+      allMembers.push(user.name);
+    }
+
+    return allMembers;
+  }, [groups, activeGroup, selectedGroupForExpense, user.name]);
 
   const handleChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,11 +101,11 @@ function AddAnExpenseComponent() {
       if (!cost || !validator.isNumeric(cost)) {
         formErrors.cost = "Cost must be a number";
       }
+      if (!activeGroup && !selectedGroupForExpense) {
+        formErrors.whoPaid = "You must select a group for this expense";
+      }
       if (!whoPaid) {
         formErrors.whoPaid = "You must select a payer";
-      }
-      if (whoPaid !== user.name && !selectedFriends.includes(whoPaid)) {
-        formErrors.sharedWith = "You must select the payer in shared friends";
       }
       if (selectedFriends.length === 0) {
         formErrors.sharedWith = "Please choose a friend for share expense";
@@ -91,58 +113,70 @@ function AddAnExpenseComponent() {
 
       if (Object.keys(formErrors).length > 0) {
         setFormData({ ...formData, errors: formErrors, isErrors: true });
+        setIsLoading(false);
         return;
       }
 
-      const newEntry: HowSpent = {
-        message: description,
-        cost: Number(cost),
-        id: uid(),
-        createdAt: new Date().toISOString(),
-        whoPaid: whoPaid,
-        sharedWith: selectedFriends,
-      };
+      try {
+        const newEntry: HowSpent = {
+          message: description,
+          cost: Number(cost),
+          id: uid(),
+          createdAt: new Date().toISOString(),
+          whoPaid: whoPaid,
+          sharedWith: selectedFriends,
+        };
 
-      dispatch(setSpents([newEntry, ...spents]));
+        dispatch(setSpents([newEntry, ...spents]));
 
-      const updatedGroups = groups.map((group) => {
-        if (group.groupName === activeGroup) {
-          const updatedGroup = {
-            ...group,
-            howSpent: [newEntry, ...(spents || [])],
-          };
-          return updatedGroup;
-        }
-        return group;
-      });
-      dispatch(updateGroup(updatedGroups));
+        const targetGroupName = activeGroup || selectedGroupForExpense;
 
-      const { error } = await supabase
-        .from("groups")
-        .update({
-          howSpent: [newEntry, ...spents],
-          lastUpdate: newEntry.createdAt,
-        })
-        .eq("groupName", activeGroup)
-        .eq("userId", user.id);
-
-      if (error) {
-        toast.error(`Error Adding data: ${error}`);
-      } else {
-        toast.success(`Data added successfully!`, {
-          duration: 4000,
+        const updatedGroups = groups.map((group) => {
+          if (group.groupName === targetGroupName) {
+            const updatedGroup = {
+              ...group,
+              howSpent: [newEntry, ...(spents || [])],
+            };
+            return updatedGroup;
+          }
+          return group;
         });
-        navigate("/mainpage");
-      }
+        dispatch(updateGroup(updatedGroups));
 
-      setFormData({
-        description: "",
-        cost: "",
-        errors: {},
-        isErrors: false,
-      });
-      setIsLoading(false);
+        const { error } = await supabase
+          .from("groups")
+          .update({
+            howSpent: [newEntry, ...spents],
+            lastUpdate: newEntry.createdAt,
+          })
+          .eq("groupName", targetGroupName)
+          .eq("userId", user.id);
+
+        if (error) {
+          toast.error(`Error Adding data: ${error}`);
+        } else {
+          toast.success(`Data added successfully!`, {
+            duration: 4000,
+          });
+          navigate("/mainpage");
+        }
+
+        setFormData({
+          description: "",
+          cost: "",
+          errors: {},
+          isErrors: false,
+        });
+        setSelectedGroupForExpense("");
+        setWhoPaid("");
+        setSelectedFriends([]);
+      } catch (error) {
+        toast.error(`Unexpected error: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       description,
       cost,
@@ -154,6 +188,7 @@ function AddAnExpenseComponent() {
       spents,
       groups,
       activeGroup,
+      selectedGroupForExpense,
       formData,
       navigate,
     ]
@@ -189,6 +224,39 @@ function AddAnExpenseComponent() {
               )}
 
               <form onSubmit={handleSubmit}>
+                {!activeGroup && (
+                  <div className="form-outline mb-3">
+                    <label className="form-label text-secondary">
+                      Choose a group for this expense
+                    </label>
+                    <select
+                      className="form-control form-control-lg"
+                      value={selectedGroupForExpense}
+                      onChange={(e) =>
+                        setSelectedGroupForExpense(e.target.value)
+                      }
+                    >
+                      <option value="">Select a group...</option>
+                      {availableGroups.map((group) => (
+                        <option key={group.id} value={group.groupName}>
+                          {group.groupName}
+                        </option>
+                      ))}
+                    </select>
+                    {availableGroups.length === 0 && (
+                      <div className="mt-2">
+                        <p className="text-muted">No groups available. </p>
+                        <Link
+                          to="/groups/new"
+                          className="btn btn-primary btn-sm"
+                        >
+                          Create a new group
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="form-outline mb-3">
                   <label
                     className="form-label text-secondary"
@@ -226,52 +294,41 @@ function AddAnExpenseComponent() {
                     <div className="friend-selection">
                       <label>Choose who paid:</label>
                       <ul className="list-group">
-                        {firendsInGroup?.map((friend) => (
+                        {firendsInGroup?.map((member) => (
                           <li
-                            key={friend}
-                            onClick={() => handlePayerSelection(friend)}
+                            key={member}
+                            onClick={() => handlePayerSelection(member)}
                             className={
-                              whoPaid === friend
+                              whoPaid === member
                                 ? "list-group-item  my-1 active"
                                 : "list-group-item  my-1"
                             }
                           >
-                            {friend}
+                            {member} {member === user.name && "(You)"}
                           </li>
                         ))}
-                        <li
-                          key={user.name}
-                          onClick={() => handlePayerSelection(user.name)}
-                          className={
-                            whoPaid === user.name
-                              ? "list-group-item my-1 active"
-                              : "list-group-item  my-1"
-                          }
-                        >
-                          {user.name}
-                        </li>
                       </ul>
                       {whoPaid && <p>You selected: {whoPaid}</p>}
                     </div>
                     <div className="friend-selection">
-                      <label>Choose friends who will share the expense:</label>
+                      <label>Choose who will share the expense:</label>
                       <ul className="list-group">
-                        {firendsInGroup?.map((friend) => (
+                        {firendsInGroup?.map((member) => (
                           <li
-                            key={friend}
-                            onClick={() => handleFriendSelection(friend)}
+                            key={member}
+                            onClick={() => handleFriendSelection(member)}
                             className={
-                              selectedFriends.includes(friend)
+                              selectedFriends.includes(member)
                                 ? "list-group-item  my-1 active"
                                 : "list-group-item  my-1"
                             }
                           >
-                            {friend}
+                            {member} {member === user.name && "(You)"}
                           </li>
                         ))}
                       </ul>
                       {selectedFriends.length > 0 && (
-                        <p>Selected friends: {selectedFriends.join(", ")}</p>
+                        <p>Selected members: {selectedFriends.join(", ")}</p>
                       )}
                     </div>
                     <div className="bottom-btns">

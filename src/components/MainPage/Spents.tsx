@@ -25,15 +25,16 @@ function SpentsComponent() {
           return (
             sum +
             Number(
-              (item?.cost - item?.cost / (item.sharedWith?.length + 1)).toFixed(
-                2
-              )
+              (
+                item?.cost -
+                item?.cost / (item.sharedWith?.length || 1)
+              ).toFixed(2)
             )
           );
         } else {
           return (
             sum -
-            Number((item?.cost / (item.sharedWith?.length + 1)).toFixed(2))
+            Number((item?.cost / (item.sharedWith?.length || 1)).toFixed(2))
           );
         }
       }, 0) || 0;

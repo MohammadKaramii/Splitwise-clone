@@ -59,7 +59,7 @@ function LoginFormComponent() {
         setIsLoading(false);
       }
     },
-    []
+    [isRecaptchaVerified, email, password, dispatch]
   );
 
   const handleRecaptchaChange = useCallback((value: string | null) => {

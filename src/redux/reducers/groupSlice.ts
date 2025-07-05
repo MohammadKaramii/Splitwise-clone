@@ -16,11 +16,13 @@ const initialState = {
           sharedWith: [""],
         },
       ],
-      paid: [{
-        whoPaid: "",
-        howMuchPaid: 0,
-        toWho: "",
-      }],
+      paid: [
+        {
+          whoPaid: "",
+          howMuchPaid: 0,
+          toWho: "",
+        },
+      ],
       userId: "",
       lastUpdate: "",
     },
@@ -35,12 +37,16 @@ const groupSlice = createSlice({
       state.groups = action.payload;
     },
     updateGroup(state, action) {
-      const { groupName, update } = action.payload;
-      const groupIndex = state.groups.findIndex(
-        (group) => group.groupName === groupName
-      );
-      if (groupIndex !== -1) {
-        state.groups[groupIndex] = update;
+      if (Array.isArray(action.payload)) {
+        state.groups = action.payload;
+      } else {
+        const { groupName, update } = action.payload;
+        const groupIndex = state.groups.findIndex(
+          (group) => group.groupName === groupName
+        );
+        if (groupIndex !== -1) {
+          state.groups[groupIndex] = update;
+        }
       }
     },
   },

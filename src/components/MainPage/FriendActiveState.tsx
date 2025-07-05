@@ -46,7 +46,7 @@ function FriendActiveStateComponent() {
       let allGroupsTotalAmountFriend = group.howSpent
         ?.filter((howSpent) => howSpent.sharedWith.includes(activeFriend))
         .reduce((sum, item) => {
-          const shareAmount = item.cost / (item.sharedWith.length + 1);
+          const shareAmount = item.cost / (item.sharedWith.length || 1);
           return item.whoPaid === user.name
             ? sum - shareAmount
             : item.whoPaid === activeFriend

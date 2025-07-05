@@ -58,7 +58,7 @@ function ListGroupCardComponent({ data, members }: ListState) {
   }, []);
 
   const share = useMemo(
-    () => cost / (members?.length + 1),
+    () => cost / (members?.length || 1),
     [cost, members]
   ).toFixed(2);
 
@@ -201,10 +201,20 @@ function ListGroupCardComponent({ data, members }: ListState) {
     },
     [activeGroupName, dispatch, spents, user.id]
   );
-  const mem = useMemo(
-    () => (data.whoPaid === user.name ? members : [...members, "You"]),
-    [data.whoPaid, members, user.name]
-  );
+  const mem = useMemo(() => {
+    // Filter out the current user's name from members
+    const membersWithoutCurrentUser = members.filter(
+      (member) => member !== user.name
+    );
+
+    // Add "You" only if the current user is in the sharedWith array
+    if (data.sharedWith.includes(user.name)) {
+      return [...membersWithoutCurrentUser, "You"];
+    }
+
+    return membersWithoutCurrentUser;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.whoPaid, data.sharedWith, members, user.name]);
   const handleDeleteConfirmation = useCallback((id: string) => {
     setShowConfirmation(true);
     setDeleteItemId(id);
@@ -278,8 +288,8 @@ function ListGroupCardComponent({ data, members }: ListState) {
                 <strong>
                   $
                   {data.whoPaid === user.name
-                    ? (cost - cost / (members.length + 1)).toFixed(2)
-                    : (cost / (members.length + 1)).toFixed(2)}
+                    ? (cost - cost / (members.length || 1)).toFixed(2)
+                    : (cost / (members.length || 1)).toFixed(2)}
                 </strong>
               </div>
             </div>
@@ -406,11 +416,7 @@ function ListGroupCardComponent({ data, members }: ListState) {
                     <span>
                       <strong> {member}</strong>{" "}
                       <span className="status-right px-1">owes</span>
-                      {data.sharedWith.includes(member) || member === "You" ? (
-                        <strong>${share}</strong>
-                      ) : (
-                        <strong>$0.00</strong>
-                      )}
+                      <strong>${share}</strong>
                     </span>
                   </div>
                 );

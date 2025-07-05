@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { supabase } from "../../../supabase";
 import { setAddPayment } from "../../redux/reducers/paidSlice";
 import { Paid } from "../../types";
-import {Loading} from "../Loading";
+import { Loading } from "../Loading";
 
 function InfoOwesComponent() {
   const groups = useSelector((state: RootState) => state.groups.groups);
@@ -47,7 +47,7 @@ function InfoOwesComponent() {
         const shouldIncludeUser =
           whoPaid === user.name && item.whoPaid !== user.name;
         const shareAmount = Number(
-          (item.cost / (item.sharedWith?.length + 1)).toFixed(2)
+          (item.cost / (item.sharedWith?.length || 1)).toFixed(2)
         );
 
         if (item.whoPaid === whoPaid) {
@@ -94,7 +94,7 @@ function InfoOwesComponent() {
 
       const totalAmounts = currentHowSpents?.length
         ? currentHowSpents.reduce((sum, item) => {
-            const shareAmount = item.cost / (item.sharedWith.length + 1);
+            const shareAmount = item.cost / (item.sharedWith.length || 1);
 
             if (friend === selectedFriend) {
               return 0;

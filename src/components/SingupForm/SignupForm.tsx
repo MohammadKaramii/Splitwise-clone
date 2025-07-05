@@ -29,23 +29,26 @@ function SignupFormComponent() {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (isActive) {
+        const newErrors: ErrorsSignup = {};
+
         if (name === "" || name.trim() === "") {
-          errors.name = "First name can't be blank";
+          newErrors.name = "First name can't be blank";
         }
 
         if (!validator.isEmail(email)) {
-          errors.email = "Please enter a valid email address.";
+          newErrors.email = "Please enter a valid email address.";
         }
 
         if (password.length < 8) {
-          errors.password = "Password is too short (minimum is 8 characters)";
+          newErrors.password =
+            "Password is too short (minimum is 8 characters)";
         }
 
         if (!isRecaptchaVerified) {
-          errors.recaptcha = "Please verify that you are not a robot.";
+          newErrors.recaptcha = "Please verify that you are not a robot.";
         }
 
-        if (Object.keys(errors).length === 0) {
+        if (Object.keys(newErrors).length === 0) {
           try {
             setIsLoading(true);
             const { data, error } = await supabase.auth.signUp({
@@ -80,12 +83,12 @@ function SignupFormComponent() {
           }
         }
 
-        setErrors(errors);
-        setIsErrors(true);
-        setIfFilled(true);
+        setErrors(newErrors);
+        setIsErrors(Object.keys(newErrors).length > 0);
+        setIfFilled(Object.keys(newErrors).length > 0);
       }
     },
-    []
+    [name, email, password, isActive, isRecaptchaVerified, dispatch]
   );
 
   const handleRecaptchaChange = useCallback(
@@ -170,7 +173,7 @@ function SignupFormComponent() {
                     <>
                       <div className="form-group mb-3 bottom-inputs">
                         <label className="form-label" htmlFor="email">
-                          Here’s my <strong>email address</strong>:
+                          Here's my <strong>email address</strong>:
                         </label>
                         <input
                           type="text"
@@ -184,7 +187,7 @@ function SignupFormComponent() {
                       </div>
                       <div className="form-group mb-3 bottom-inputs">
                         <label className="form-label" htmlFor="password">
-                          And here’s my <strong>password</strong>:
+                          And here's my <strong>password</strong>:
                         </label>
                         <input
                           type="password"
