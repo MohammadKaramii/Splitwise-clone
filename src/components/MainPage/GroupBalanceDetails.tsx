@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   calculateAllPairwiseBalances,
+  calculateOverallBalances,
   Expense,
 } from "../../utils/balanceCalculations";
 import { Paid } from "../../types/info-owes";
@@ -27,9 +28,9 @@ interface GroupBalanceDetailsProps {
   payments: Paid[];
   viewingUser: string;
   allGroups: FullGroup[]; // All groups for cross-group summary
-  allExpenses: Expense[]; // All expenses across groups
   allPayments: Paid[]; // All payments across groups
   onSettleClick?: (userA: string, userB: string) => void;
+  onSettleAllClick?: () => void;
 }
 
 export function GroupBalanceDetails({
@@ -38,9 +39,9 @@ export function GroupBalanceDetails({
   payments,
   viewingUser,
   allGroups,
-  allExpenses,
   allPayments,
   onSettleClick,
+  onSettleAllClick,
 }: GroupBalanceDetailsProps) {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -49,62 +50,20 @@ export function GroupBalanceDetails({
     return calculateAllPairwiseBalances(groupMembers, expenses, payments);
   }, [groupMembers, expenses, payments]);
 
-  // Calculate overall balance summary across ALL groups
+  // Calculate overall balance summary across ALL groups using centralized function
   const overallSummary = useMemo(() => {
     if (!allGroups || allGroups.length === 0) return null;
 
-    // Get all unique users across all groups
-    const allUsers = Array.from(
-      new Set([
-        viewingUser,
-        ...allGroups.flatMap((group) => group.friends || []),
-      ])
+    const balances = calculateOverallBalances(
+      allGroups,
+      allPayments,
+      viewingUser
     );
-
-    // Calculate total balance for each user across all groups
-    const totalBalances = allUsers.map((userId) => {
-      // Get expenses for groups where this user is involved
-      const userExpenses = allExpenses.filter(
-        (expense) =>
-          expense.whoPaid === userId || expense.sharedWith.includes(userId)
-      );
-
-      // Get payments involving this user
-      const userPayments = allPayments.filter(
-        (payment) => payment.whoPaid === userId || payment.toWho === userId
-      );
-
-      const balance = userExpenses.reduce((sum, expense) => {
-        if (expense.whoPaid === userId) {
-          const userShare = expense.sharedWith.includes(userId)
-            ? expense.cost / expense.sharedWith.length
-            : 0;
-          return sum + (expense.cost - userShare);
-        } else if (expense.sharedWith.includes(userId)) {
-          const userShare = expense.cost / expense.sharedWith.length;
-          return sum - userShare;
-        }
-        return sum;
-      }, 0);
-
-      // Apply payments
-      const finalBalance = userPayments.reduce((sum, payment) => {
-        if (payment.whoPaid === userId) {
-          return sum - payment.howMuchPaid;
-        } else if (payment.toWho === userId) {
-          return sum + payment.howMuchPaid;
-        }
-        return sum;
-      }, balance);
-
-      return {
-        userId,
-        totalBalance: Number(finalBalance.toFixed(2)),
-      };
-    });
-
-    return totalBalances;
-  }, [allGroups, allExpenses, allPayments, viewingUser]);
+    return balances.map((balance) => ({
+      userId: balance.userId,
+      totalBalance: balance.balance,
+    }));
+  }, [allGroups, allPayments, viewingUser]);
 
   // Helper functions
   const getDisplayName = (userName: string) => {
@@ -123,7 +82,18 @@ export function GroupBalanceDetails({
     <div className="group-balance-details">
       {/* Current Group Balances */}
       <div className="current-group-balances">
-        <h5 className="right-title">GROUP BALANCES</h5>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="right-title">GROUP BALANCES</h5>
+          {onSettleAllClick &&
+            pairwiseBalances.some((pair) => Math.abs(pair.amount) > 0.01) && (
+              <button
+                className="btn btn-success btn-sm"
+                onClick={onSettleAllClick}
+              >
+                Settle All Debts
+              </button>
+            )}
+        </div>
         <div className="pairwise-balances">
           {pairwiseBalances
             .filter((pair) => Math.abs(pair.amount) > 0.01) // Only show non-zero balances

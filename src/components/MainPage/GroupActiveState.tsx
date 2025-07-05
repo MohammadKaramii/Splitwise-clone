@@ -1,8 +1,9 @@
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import { useMemo, useEffect, memo } from "react";
-import {ListGroupCard} from "./ListGroupCard";
+import { ListGroupCard } from "./ListGroupCard";
 import { uid } from "uid";
+import { getGroupPayments } from "../../utils/balanceCalculations";
 
 function GroupActiveStateComponent() {
   const groups = useSelector((state: RootState) => state.groups.groups);
@@ -47,22 +48,23 @@ function GroupActiveStateComponent() {
         {paids ? (
           <>
             <h5>Transactions</h5>
-            {paids
-              .filter((paid) => paid.groupName === activeGroupName)
-              .map((member) => {
-                return paids ? (
-                  <li className="paid-person-container" key={uid()}>
-                    <i className="fa-regular fa-circle-check mx-1"></i>
-                    <span>
-                      <strong> {member.whoPaid}</strong>
-                    </span>
-                    <span className=""> paid his share of </span>
-                    <strong>${member.howMuchPaid}</strong>
-                    <span className=""> to </span>
-                    <strong>{member.toWho}</strong>
-                  </li>
-                ) : null;
-              })}
+            {(() => {
+              if (!activeGroup) return [];
+              return getGroupPayments(paids, activeGroup);
+            })().map((member) => {
+              return paids ? (
+                <li className="paid-person-container" key={uid()}>
+                  <i className="fa-regular fa-circle-check mx-1"></i>
+                  <span>
+                    <strong> {member.whoPaid}</strong>
+                  </span>
+                  <span className=""> paid his share of </span>
+                  <strong>${member.howMuchPaid}</strong>
+                  <span className=""> to </span>
+                  <strong>{member.toWho}</strong>
+                </li>
+              ) : null;
+            })}
           </>
         ) : null}
       </ul>

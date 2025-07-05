@@ -145,6 +145,34 @@ function GroupsAndFriendsComponent() {
           throw new Error(error.message);
         }
 
+        // Clean up payments associated with this group
+        const paidsResponse = await supabase
+          .from("myPaids")
+          .select("*")
+          .eq("userId", userData.id);
+
+        if (paidsResponse.data && paidsResponse.data.length > 0) {
+          const currentPaids = paidsResponse.data[0]?.paids || [];
+          const cleanedPaids = currentPaids.filter((paid: any) => {
+            // Remove payments that belong to the deleted group
+            if (paid.groupId) {
+              return paid.groupId !== groupToDelete;
+            } else {
+              // For legacy payments without groupId, check groupName
+              return paid.groupName !== groupBeingDeleted?.groupName;
+            }
+          });
+
+          // Update the cleaned payments in the database
+          await supabase
+            .from("myPaids")
+            .update({ paids: cleanedPaids })
+            .eq("userId", userData.id);
+
+          // Update the Redux store with cleaned payments
+          dispatch(setAddPayment(cleanedPaids));
+        }
+
         const updatedGroups = groups.filter(
           (group) => group.id !== groupToDelete
         );
@@ -166,7 +194,7 @@ function GroupsAndFriendsComponent() {
           dispatch(setSpents([]));
         }
 
-        toast.success("Group deleted successfully");
+        toast.success("Group and associated transactions deleted successfully");
       }
 
       setGroupToDelete(null);
@@ -175,7 +203,7 @@ function GroupsAndFriendsComponent() {
       console.error("Error deleting group:", error);
       toast.error(`Error deleting group:, ${error}`);
     }
-  }, [groupToDelete, groups, dispatch, user.activeGroup]);
+  }, [groupToDelete, groups, dispatch, user.activeGroup, userData.id]);
 
   const cancelDeleteGroup = useCallback(() => {
     setGroupToDelete(null);

@@ -6,6 +6,7 @@ import { setTotalAmount } from "../../redux/reducers/totalAmonutSlice";
 import {
   calculatePairwiseBalance,
   Expense,
+  getGroupPayments,
 } from "../../utils/balanceCalculations";
 
 interface TotalAmounts {
@@ -64,9 +65,7 @@ function FriendActiveStateComponent() {
           })) || [];
 
       // Filter payments for this group
-      const groupPayments = paids.filter(
-        (paid) => paid.groupName === group.groupName
-      );
+      const groupPayments = getGroupPayments(paids, group);
 
       // Calculate pairwise balance between user and friend for this group
       const balance = calculatePairwiseBalance(

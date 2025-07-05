@@ -9,6 +9,8 @@ import { Loading } from "../Loading";
 import {
   calculatePairwiseBalance,
   Expense,
+  getSettlementSuggestions,
+  getGroupPayments,
 } from "../../utils/balanceCalculations";
 import { GroupBalanceDetails } from "./GroupBalanceDetails";
 
@@ -25,6 +27,7 @@ function InfoOwesComponent() {
 
   const dispatch = useDispatch();
   const [settleModal, setSettleModal] = useState(false);
+  const [settleAllModal, setSettleAllModal] = useState(false);
   const [howMuchSettle, setHowMuchSettle] = useState(0);
   const [settleAmount, setSettleAmount] = useState(0);
   const [selectedFriend, setSelectedFriend] = useState("");
@@ -43,22 +46,11 @@ function InfoOwesComponent() {
     }));
   }, [spents]);
 
-  // Get all expenses across all groups for comprehensive summary
-  const allExpenses: Expense[] = useMemo(() => {
-    if (!groups) return [];
-    return groups.flatMap((group) =>
-      (group.howSpent || []).map((spent) => ({
-        cost: spent.cost,
-        whoPaid: spent.whoPaid,
-        sharedWith: spent.sharedWith as string[],
-      }))
-    );
-  }, [groups]);
-
   // Filter payments for current group
   const groupPayments = useMemo(() => {
-    return paids?.filter((paid) => paid.groupName === activeGroupName) || [];
-  }, [paids, activeGroupName]);
+    if (!activeGroup) return [];
+    return getGroupPayments(paids || [], activeGroup);
+  }, [paids, activeGroup]);
 
   // All payments across all groups
   const allPayments = useMemo(() => {
@@ -90,6 +82,7 @@ function InfoOwesComponent() {
       if (Math.abs(debt) > 0.01) {
         setSettleModal(true);
         setHowMuchSettle(Math.abs(debt));
+        setSettleAmount(Math.abs(debt)); // Pre-fill with the full debt amount
       } else {
         toast.error("No debt to settle between these users");
       }
@@ -107,10 +100,11 @@ function InfoOwesComponent() {
         return;
       }
       const newPayment = {
-        whoPaid: selectedFriend,
+        whoPaid: friend, // The debtor pays
         howMuchPaid: settleAmount,
-        toWho: friend,
+        toWho: selectedFriend, // The creditor receives
         groupName: activeGroupName,
+        groupId: activeGroup?.id || "",
       };
 
       const updatedPaids = (prevPaids: Paid[]) => {
@@ -121,7 +115,9 @@ function InfoOwesComponent() {
             (paid) =>
               paid.whoPaid === newPayment.whoPaid &&
               paid.toWho === newPayment.toWho &&
-              paid.groupName === newPayment.groupName
+              (paid.groupId
+                ? paid.groupId === newPayment.groupId
+                : paid.groupName === newPayment.groupName)
           );
 
           if (existingPaidIndex !== -1) {
@@ -177,6 +173,105 @@ function InfoOwesComponent() {
     ]
   );
 
+  const handleSettleAll = useCallback(async () => {
+    if (!activeGroupName) {
+      toast.error("No active group selected");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Get settlement suggestions for the current group
+    const settlements = getSettlementSuggestions(
+      allGroupMembers,
+      expenses,
+      groupPayments
+    );
+
+    if (settlements.length === 0) {
+      toast.success("Everyone is already settled up!");
+      setIsLoading(false);
+      return;
+    }
+
+    // Create new payments for all settlements
+    const newPayments = settlements.map((settlement) => ({
+      whoPaid: settlement.from,
+      howMuchPaid: settlement.amount,
+      toWho: settlement.to,
+      groupName: activeGroupName,
+      groupId: activeGroup?.id || "",
+    }));
+
+    const updatedPaids = (prevPaids: Paid[]) => {
+      let result = [...prevPaids];
+
+      // Add each new payment, consolidating with existing ones if they exist
+      newPayments.forEach((newPayment) => {
+        const existingPaidIndex = result.findIndex(
+          (paid) =>
+            paid.whoPaid === newPayment.whoPaid &&
+            paid.toWho === newPayment.toWho &&
+            (paid.groupId
+              ? paid.groupId === newPayment.groupId
+              : paid.groupName === newPayment.groupName)
+        );
+
+        if (existingPaidIndex !== -1) {
+          result = result.map((paid, index) => {
+            if (index === existingPaidIndex) {
+              return {
+                ...paid,
+                howMuchPaid: paid.howMuchPaid + newPayment.howMuchPaid,
+              };
+            }
+            return paid;
+          });
+        } else {
+          result.push(newPayment);
+        }
+      });
+
+      return result;
+    };
+
+    const { error } =
+      paids.length === 0
+        ? await supabase.from("myPaids").insert({
+            paids: updatedPaids(paids),
+            userId: user.id,
+          })
+        : await supabase
+            .from("myPaids")
+            .update({
+              paids: updatedPaids(paids),
+            })
+            .eq("userId", user.id);
+
+    if (error) {
+      toast.error(`Error updating data: ${error}`);
+    } else {
+      dispatch(setAddPayment(updatedPaids(paids)));
+      toast.success(
+        `Successfully settled ${settlements.length} payment(s)! Everyone is now settled up.`,
+        {
+          duration: 5000,
+        }
+      );
+    }
+
+    setSettleAllModal(false);
+    setIsLoading(false);
+  }, [
+    allGroupMembers,
+    expenses,
+    groupPayments,
+    activeGroupName,
+    paids,
+    user.id,
+    dispatch,
+  ]);
+
   return (
     <>
       {isLoading && <Loading />}
@@ -189,9 +284,9 @@ function InfoOwesComponent() {
             payments={groupPayments}
             viewingUser={user.name}
             allGroups={groups}
-            allExpenses={allExpenses}
             allPayments={allPayments}
             onSettleClick={handleSettleClick}
+            onSettleAllClick={() => setSettleAllModal(true)}
           />
         </div>
       )}
@@ -206,7 +301,10 @@ function InfoOwesComponent() {
                     type="button"
                     className="btn-close"
                     aria-label="Close"
-                    onClick={() => setSettleModal(false)}
+                    onClick={() => {
+                      setSettleModal(false);
+                      setSettleAmount(0);
+                    }}
                   />
                 </div>
                 <div className="modal-body">
@@ -232,30 +330,159 @@ function InfoOwesComponent() {
         </form>
       )}
 
+      {settleAllModal && (
+        <div className="modal d-flex">
+          <div className="modal-dialog">
+            <div className="modal-content settleup-modal">
+              <div className="modal-header">
+                <h5 className="modal-title">Settle All Debts</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => setSettleAllModal(false)}
+                />
+              </div>
+              <div className="modal-body">
+                <p>
+                  This will automatically settle all outstanding debts in the
+                  group using the minimum number of transactions.
+                </p>
+                <p>
+                  <strong>Are you sure you want to settle all debts?</strong>
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary me-2"
+                  onClick={() => setSettleAllModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSettleAll}
+                >
+                  Settle All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {user.activeFriend && (
         <div className="col mt-3">
-          <GroupBalanceDetails
-            groupMembers={[user.name, user.activeFriend]}
-            expenses={allExpenses.filter(
-              (expense) =>
-                expense.sharedWith.includes(user.name) ||
-                expense.sharedWith.includes(user.activeFriend!) ||
-                expense.whoPaid === user.name ||
-                expense.whoPaid === user.activeFriend!
-            )}
-            payments={allPayments.filter(
-              (payment) =>
-                (payment.whoPaid === user.name &&
-                  payment.toWho === user.activeFriend!) ||
-                (payment.whoPaid === user.activeFriend! &&
-                  payment.toWho === user.name)
-            )}
-            viewingUser={user.name}
-            allGroups={groups}
-            allExpenses={allExpenses}
-            allPayments={allPayments}
-            onSettleClick={handleSettleClick}
-          />
+          <div className="group-balance-details">
+            <div className="current-group-balances">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5 className="right-title">
+                  {user.activeFriend} OWES (Current Group)
+                </h5>
+              </div>
+              <div className="pairwise-balances">
+                {(() => {
+                  // Get all people who have relationships with the active friend in CURRENT GROUP ONLY
+                  const currentGroupPeopleSet = new Set<string>();
+
+                  // Add people from expenses involving the active friend in current group only
+                  expenses.forEach((expense) => {
+                    if (
+                      expense.whoPaid === user.activeFriend ||
+                      expense.sharedWith.includes(user.activeFriend!)
+                    ) {
+                      currentGroupPeopleSet.add(expense.whoPaid);
+                      expense.sharedWith.forEach((person) =>
+                        currentGroupPeopleSet.add(person)
+                      );
+                    }
+                  });
+
+                  // Add people from payments involving the active friend in current group only
+                  groupPayments.forEach((payment) => {
+                    if (
+                      payment.whoPaid === user.activeFriend ||
+                      payment.toWho === user.activeFriend
+                    ) {
+                      currentGroupPeopleSet.add(payment.whoPaid);
+                      currentGroupPeopleSet.add(payment.toWho);
+                    }
+                  });
+
+                  const currentGroupPeople = Array.from(currentGroupPeopleSet);
+
+                  // Calculate pairwise balances only showing what the active friend owes in current group
+                  const relevantBalances = currentGroupPeople
+                    .filter((person) => person !== user.activeFriend)
+                    .map((person) => {
+                      const balance = calculatePairwiseBalance(
+                        user.activeFriend!,
+                        person,
+                        expenses,
+                        groupPayments
+                      );
+                      return {
+                        userA: user.activeFriend!,
+                        userB: person,
+                        amount: balance,
+                      };
+                    })
+                    .filter((pair) => pair.amount > 0.01); // Only show positive amounts (active friend owes others)
+
+                  const getDisplayName = (userName: string) => {
+                    return userName === user.name ? "You" : userName;
+                  };
+
+                  const formatBalance = (balance: number) => {
+                    return Math.abs(balance).toFixed(2);
+                  };
+
+                  return relevantBalances.length > 0 ? (
+                    relevantBalances.map((pair, index) => (
+                      <div
+                        key={index}
+                        className="pairwise-balance-item"
+                        style={{
+                          padding: "10px",
+                          margin: "5px 0",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          backgroundColor: "#f8f9fa",
+                        }}
+                      >
+                        <div className="balance-description">
+                          <span>
+                            <strong>{getDisplayName(pair.userA)}</strong> owes{" "}
+                            <strong>{getDisplayName(pair.userB)}</strong>{" "}
+                            <span className="text-danger">
+                              ${formatBalance(pair.amount)}
+                            </span>
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-sm btn-outline-primary mt-2"
+                          onClick={() => {
+                            // Active friend (userA) always owes to userB in this view
+                            handleSettleClick(pair.userA, pair.userB);
+                          }}
+                        >
+                          Settle up
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-3">
+                      <span className="text-muted">
+                        {user.activeFriend} doesn't owe money to anyone
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { RootState } from "../../redux/store";
 import toast from "react-hot-toast";
 import { memo, useMemo } from "react";
-import { Expense } from "../../utils/balanceCalculations";
+import { Expense, getGroupPayments } from "../../utils/balanceCalculations";
 import { UserBalanceView } from "./UserBalanceView";
 
 function SpentsComponent() {
@@ -27,8 +27,13 @@ function SpentsComponent() {
 
   // Filter payments for current group
   const groupPayments = useMemo(() => {
-    return paids?.filter((paid) => paid.groupName === user.activeGroup) || [];
-  }, [paids, user.activeGroup]);
+    const activeGroup = groups.find(
+      (group) => group.groupName === user.activeGroup
+    );
+    if (!activeGroup) return [];
+
+    return getGroupPayments(paids || [], activeGroup);
+  }, [paids, user.activeGroup, groups]);
 
   // Get current group members
   const currentGroupMembers = useMemo(() => {

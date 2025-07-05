@@ -8,6 +8,7 @@ const paidSlice = createSlice({
       howMuchPaid: 0,
       toWho: "",
       groupName: "",
+      groupId: "",
     },
   ],
 

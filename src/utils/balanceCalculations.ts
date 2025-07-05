@@ -1,5 +1,21 @@
 import { Paid } from "../types/info-owes";
 
+interface Group {
+  id: string;
+  groupName: string;
+  friends: string[];
+  howSpent?: Array<{
+    message: string;
+    cost: number;
+    id: string;
+    createdAt: string;
+    whoPaid: string;
+    sharedWith: string[];
+  }>;
+  userId: string;
+  lastUpdate: string;
+}
+
 export interface Expense {
   cost: number;
   whoPaid: string;
@@ -195,4 +211,93 @@ export function getSettlementSuggestions(
   }
 
   return suggestions;
+}
+
+/**
+ * Calculate overall balance for a user across all groups
+ * Returns positive if user is owed money, negative if user owes money
+ */
+export function calculateOverallUserBalance(
+  userId: string,
+  allGroups: Group[],
+  allPayments: Paid[]
+): number {
+  let balance = 0;
+
+  // Calculate balance from expenses across all groups
+  allGroups.forEach((group) => {
+    const groupExpenses = (group.howSpent || []).map((spent) => ({
+      cost: spent.cost,
+      whoPaid: spent.whoPaid,
+      sharedWith: spent.sharedWith as string[],
+    }));
+
+    // Filter payments for this group
+    const groupPayments = getGroupPayments(allPayments, group);
+
+    // Add this group's balance to the total
+    balance += calculateUserBalance(userId, groupExpenses, groupPayments);
+  });
+
+  return Number(balance.toFixed(2));
+}
+
+/**
+ * Calculate overall balances for all users across all groups
+ */
+export function calculateOverallBalances(
+  allGroups: Group[],
+  allPayments: Paid[],
+  currentUserName?: string
+): UserBalance[] {
+  // Get all unique user NAMES across all groups (not UUIDs)
+  const allUserNames = new Set<string>();
+
+  // Add the current user's name if provided
+  if (currentUserName) {
+    allUserNames.add(currentUserName);
+  }
+
+  allGroups.forEach((group) => {
+    // Add friends (which are already names)
+    (group.friends || []).forEach((friend) => allUserNames.add(friend));
+
+    // Try to find the group owner's name from expenses if current user name not provided
+    if (!currentUserName && group.howSpent && group.howSpent.length > 0) {
+      // Get all unique payers from this group's expenses
+      const payers = Array.from(
+        new Set(group.howSpent.map((spent) => spent.whoPaid))
+      );
+
+      // Find a payer who is not in the friends list (this should be the owner)
+      const ownerName = payers.find((payer) => !group.friends.includes(payer));
+      if (ownerName) {
+        allUserNames.add(ownerName);
+      }
+    }
+  });
+
+  const allUsers = Array.from(allUserNames);
+
+  return allUsers.map((userName) => ({
+    userId: userName, // Use name as userId for consistency
+    balance: calculateOverallUserBalance(userName, allGroups, allPayments),
+  }));
+}
+
+/**
+ * Get payments filtered for a specific group with backwards compatibility
+ */
+export function getGroupPayments(
+  allPayments: Paid[],
+  group: { id: string; groupName: string }
+): Paid[] {
+  return allPayments.filter((payment) => {
+    // Prefer groupId if available, fallback to groupName for backwards compatibility
+    if (payment.groupId) {
+      return payment.groupId === group.id;
+    } else {
+      return payment.groupName === group.groupName;
+    }
+  });
 }
