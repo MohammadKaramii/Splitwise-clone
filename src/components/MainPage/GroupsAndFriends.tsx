@@ -131,6 +131,11 @@ function GroupsAndFriendsComponent() {
   const confirmDeleteGroup = useCallback(async () => {
     try {
       if (groupToDelete) {
+        // Find the group being deleted to check if it's the active group
+        const groupBeingDeleted = groups.find(
+          (group) => group.id === groupToDelete
+        );
+
         const { error } = await supabase
           .from("groups")
           .delete()
@@ -145,6 +150,22 @@ function GroupsAndFriendsComponent() {
         );
         setGroups(updatedGroups);
         dispatch(setGroupData(updatedGroups));
+
+        // If the deleted group was the active group, clear the active group and related data
+        if (
+          groupBeingDeleted &&
+          user.activeGroup === groupBeingDeleted.groupName
+        ) {
+          dispatch(
+            setSignInUserData({
+              activeGroup: null,
+              activeFriend: null,
+            })
+          );
+          // Clear the spents data since the active group is deleted
+          dispatch(setSpents([]));
+        }
+
         toast.success("Group deleted successfully");
       }
 
@@ -154,7 +175,7 @@ function GroupsAndFriendsComponent() {
       console.error("Error deleting group:", error);
       toast.error(`Error deleting group:, ${error}`);
     }
-  }, [groupToDelete, groups, dispatch]);
+  }, [groupToDelete, groups, dispatch, user.activeGroup]);
 
   const cancelDeleteGroup = useCallback(() => {
     setGroupToDelete(null);

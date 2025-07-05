@@ -22,20 +22,19 @@ function SpentsComponent() {
     let calculatedAmount =
       spents?.reduce((sum, item) => {
         if (item.whoPaid === user.name) {
-          return (
-            sum +
-            Number(
-              (
-                item?.cost -
-                item?.cost / (item.sharedWith?.length || 1)
-              ).toFixed(2)
-            )
-          );
+          // If user paid but is not in sharedWith, they get back the full amount
+          // If user paid and is in sharedWith, they get back (cost - their share)
+          const userShare = (item.sharedWith as string[])?.includes(user.name)
+            ? item?.cost / (item.sharedWith?.length || 1)
+            : 0;
+          return sum + Number((item?.cost - userShare).toFixed(2));
         } else {
-          return (
-            sum -
-            Number((item?.cost / (item.sharedWith?.length || 1)).toFixed(2))
-          );
+          // If someone else paid and user is in sharedWith, user owes their share
+          // If user is not in sharedWith, user owes nothing
+          const userShare = (item.sharedWith as string[])?.includes(user.name)
+            ? item?.cost / (item.sharedWith?.length || 1)
+            : 0;
+          return sum - Number(userShare.toFixed(2));
         }
       }, 0) || 0;
 

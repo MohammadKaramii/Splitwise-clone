@@ -44,20 +44,20 @@ function InfoOwesComponent() {
       );
 
       let totalAmount = spents?.reduce((sum, item) => {
-        const shouldIncludeUser =
-          whoPaid === user.name && item.whoPaid !== user.name;
-        const shareAmount = Number(
-          (item.cost / (item.sharedWith?.length || 1)).toFixed(2)
-        );
+        const isPayerInSharedWith =
+          item.sharedWith && (item.sharedWith as string[]).includes(whoPaid);
+        const shareAmount = isPayerInSharedWith
+          ? Number((item.cost / (item.sharedWith?.length || 1)).toFixed(2))
+          : 0;
 
         if (item.whoPaid === whoPaid) {
+          // If this person paid but is not in sharedWith, they get back the full amount
+          // If they paid and are in sharedWith, they get back (cost - their share)
           return sum + (item.cost - shareAmount);
         }
 
-        if (
-          item.sharedWith?.some((sharedWith) => sharedWith === whoPaid) ||
-          shouldIncludeUser
-        ) {
+        if (isPayerInSharedWith) {
+          // If someone else paid and this person is in sharedWith, they owe their share
           return sum - shareAmount;
         }
         return sum;
@@ -79,6 +79,7 @@ function InfoOwesComponent() {
 
       return Number(totalAmount).toFixed(2);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeGroup, activeGroupName, paids, spents, user.name]
   );
 

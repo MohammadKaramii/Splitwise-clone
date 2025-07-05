@@ -213,7 +213,7 @@ function ListGroupCardComponent({ data, members }: ListState) {
     }
 
     return membersWithoutCurrentUser;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.whoPaid, data.sharedWith, members, user.name]);
   const handleDeleteConfirmation = useCallback((id: string) => {
     setShowConfirmation(true);
@@ -288,8 +288,10 @@ function ListGroupCardComponent({ data, members }: ListState) {
                 <strong>
                   $
                   {data.whoPaid === user.name
-                    ? (cost - cost / (members.length || 1)).toFixed(2)
-                    : (cost / (members.length || 1)).toFixed(2)}
+                    ? data.sharedWith.includes(user.name)
+                      ? (cost - cost / (data.sharedWith.length || 1)).toFixed(2)
+                      : cost.toFixed(2)
+                    : (cost / (data.sharedWith.length || 1)).toFixed(2)}
                 </strong>
               </div>
             </div>
