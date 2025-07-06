@@ -6,6 +6,11 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "../../../supabase";
 import { Loading } from "../Loading";
 
+const ReCAPTCHAComponent = ReCAPTCHA as unknown as React.ComponentType<{
+  sitekey: string;
+  onChange: (value: string | null) => void;
+}>;
+
 function ResetPasswordFormComponent() {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const [email, setEmail] = useState("");
@@ -48,7 +53,7 @@ function ResetPasswordFormComponent() {
       setEmail("");
       setIsLoading(false);
     },
-    []
+    [email, isRecaptchaVerified]
   );
 
   const handleRecaptchaChange = useCallback(
@@ -99,7 +104,7 @@ function ResetPasswordFormComponent() {
                 </div>
 
                 <div className="py-3 recaptcha-reset">
-                  <ReCAPTCHA
+                  <ReCAPTCHAComponent
                     sitekey={siteKey}
                     onChange={handleRecaptchaChange}
                   />

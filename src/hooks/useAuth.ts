@@ -59,7 +59,7 @@ export const useAuth = () => {
     async (authData: AuthData) => {
       dispatch(setLoading(true));
       try {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: authData.email,
           password: authData.password,
           options: {
