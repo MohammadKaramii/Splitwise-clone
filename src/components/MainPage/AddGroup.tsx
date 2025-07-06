@@ -1,30 +1,22 @@
 import React, { useState, useCallback, memo } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { setGroupData } from "../../redux/reducers/groupSlice";
-import { selectUserData } from "../../redux/reducers/userDataSlice";
-import { RootState } from "../../redux/store";
-import { uid } from "uid";
-import { supabase } from "../../../supabase";
-import toast from "react-hot-toast";
+import { useAuth, useGroups } from "../../hooks";
 import { useNavigate } from "react-router-dom";
-import {Loading} from "../Loading";
+import { Loading } from "../Loading";
+import { validateGroupName } from "../../utils/validation";
 
-function AddGroupComponent  () {
+function AddGroupComponent() {
   const [isActive, setIsActive] = useState(false);
   const [groupName, setGroupName] = useState("");
-  const userData = useSelector(selectUserData);
-  const dispatch = useDispatch();
+  const [validationError, setValidationError] = useState("");
+  const { user } = useAuth();
+  const { createGroup, isLoading } = useGroups();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
   const [members, setMembers] = useState([
-    { id: userData.id, name: userData.name, email: userData.email },
-    { id: "", name: "", email: "" },
-    { id: "", name: "", email: "" },
-    { id: "", name: "", email: "" },
+    { name: user?.name || "", email: user?.email || "" },
+    { name: "", email: "" },
+    { name: "", email: "" },
+    { name: "", email: "" },
   ]);
-  const currentGroups = useSelector((state: RootState) =>
-    state.groups.groups.filter((group) => group.userId === userData.id)
-  );
 
   const handleMemberChange = useCallback(
     (index: number, field: string, value: string) => {
@@ -50,37 +42,52 @@ function AddGroupComponent  () {
   }, []);
 
   const handleAddMember = useCallback(() => {
-    setMembers((prevMembers) => [
-      ...prevMembers,
-      { id: userData.id, name: "", email: "" },
-    ]);
-  }, [userData.id]);
+    setMembers((prevMembers) => [...prevMembers, { name: "", email: "" }]);
+  }, []);
+
+  const handleGroupNameChange = useCallback(
+    (value: string) => {
+      setGroupName(value);
+      setIsActive(true);
+
+      // Clear previous validation error
+      if (validationError) {
+        setValidationError("");
+      }
+
+      // Validate group name
+      const error = validateGroupName(value);
+      if (error) {
+        setValidationError(error);
+      }
+    },
+    [validationError]
+  );
 
   const saveGroup = useCallback(async () => {
-    const newGroup = {
-      id: uid(),
-      groupName: groupName,
-      friends: members
-        .filter((member) => member.id !== userData.id)
-        .map((member) => member.name),
-      userId: userData.id,
-      lastUpdate: new Date().toISOString(),
-    };
-    setIsLoading(true);
-    const { error } = await supabase.from("groups").insert([newGroup]);
+    if (!user?.id) return;
 
-    if (error) {
-      toast.error(`Error saving group: ${error}`);
+    // Validate group name before saving
+    const nameError = validateGroupName(groupName);
+    if (nameError) {
+      setValidationError(nameError);
       return;
-    } else {
-      toast.success("Group saved successfully", {
-        duration: 4000,
-      });
-      dispatch(setGroupData([...currentGroups, newGroup]));
-      setIsLoading(false);
+    }
+
+    // Filter out members with empty names and exclude the current user
+    const groupMembers = members
+      .filter((member) => member.name.trim() && member.name !== user.name)
+      .map((member) => ({ name: member.name.trim(), email: member.email }));
+
+    const result = await createGroup({
+      name: groupName.trim(),
+      members: groupMembers,
+    });
+
+    if (result?.success) {
       navigate("/mainpage");
     }
-  }, [dispatch, groupName, members, userData.id, currentGroups, navigate]);
+  }, [groupName, members, user?.id, user?.name, createGroup, navigate]);
 
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -113,14 +120,20 @@ function AddGroupComponent  () {
                 <input
                   type="text"
                   id="groupname"
-                  className="form-control form-control-lg name-input"
+                  className={`form-control form-control-lg name-input ${
+                    validationError ? "is-invalid" : ""
+                  }`}
                   required
                   value={groupName}
-                  onChange={(event) => {
-                    setGroupName(event.target.value);
-                    setIsActive(true);
-                  }}
+                  onChange={(event) =>
+                    handleGroupNameChange(event.target.value)
+                  }
                 />
+                {validationError && (
+                  <div className="invalid-feedback d-block">
+                    {validationError}
+                  </div>
+                )}
               </div>
               {isActive && (
                 <>
@@ -192,6 +205,6 @@ function AddGroupComponent  () {
       </div>
     </>
   );
-};
+}
 
 export const AddGroup = memo(AddGroupComponent);

@@ -2,19 +2,25 @@ import { memo, useCallback, useState } from "react";
 import "./SignupForm.css";
 import validator from "validator";
 import { Link } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { setSignInUserData } from "../../redux/reducers/userDataSlice";
+import { useDispatch } from "react-redux";
+import { setUser } from "../../redux/slices/authSlice";
 import { SuccessLoginMessage } from "../SuccessMessage";
-import { RootState } from "../../redux/store";
 import { supabase } from "../../../supabase";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Loading } from "../Loading";
-import { ErrorsSignup } from "../../types";
+import { useAuth } from "../../hooks";
+
+interface ErrorsSignup {
+  name?: string;
+  email?: string;
+  password?: string;
+  recaptcha?: string;
+}
 
 function SignupFormComponent() {
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const dispatch = useDispatch();
-  const user = useSelector((state: RootState) => state.userData.user);
+  const { user } = useAuth();
   const [ifFilled, setIfFilled] = useState(false);
   const [isErrors, setIsErrors] = useState(false);
   const [errors, setErrors] = useState<ErrorsSignup>({});
@@ -65,11 +71,11 @@ function SignupFormComponent() {
               throw new Error("Sign up failed. Please try again.");
             } else if (data) {
               dispatch(
-                setSignInUserData({
+                setUser({
+                  id: data.user?.id || "",
                   name: data.user?.user_metadata.name,
                   email: email,
-                  isSignIn: true,
-                  id: data.user?.id,
+                  isSignedIn: true,
                 })
               );
             }
@@ -102,7 +108,7 @@ function SignupFormComponent() {
     <>
       {isLoading ? (
         <Loading />
-      ) : user.isSignIn ? (
+      ) : user?.isSignedIn ? (
         <SuccessLoginMessage />
       ) : (
         <>
@@ -200,10 +206,19 @@ function SignupFormComponent() {
                         />
                       </div>
                       <div className="mb-3 recaptcha-signin">
-                        <ReCAPTCHA
-                          sitekey={siteKey}
-                          onChange={handleRecaptchaChange}
-                        />
+                        {(() => {
+                          const ReCAPTCHAComponent =
+                            ReCAPTCHA as unknown as React.ComponentType<{
+                              sitekey: string;
+                              onChange: (value: string | null) => void;
+                            }>;
+                          return (
+                            <ReCAPTCHAComponent
+                              sitekey={siteKey}
+                              onChange={handleRecaptchaChange}
+                            />
+                          );
+                        })()}
                       </div>
                     </>
                   )}

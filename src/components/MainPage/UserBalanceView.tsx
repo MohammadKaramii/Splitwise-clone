@@ -4,13 +4,13 @@ import {
   calculateGroupBalances,
   Expense,
 } from "../../utils/balanceCalculations";
-import { Paid } from "../../types/info-owes";
+import { Payment } from "../../types/core";
 
 interface UserBalanceViewProps {
   targetUser: string; // The user whose balance we want to display
   groupMembers: string[];
   expenses: Expense[];
-  payments: Paid[];
+  payments: Payment[];
   viewingUser: string; // The user who is currently viewing (for "You" display)
   showIndividual?: boolean;
   showGroupSummary?: boolean;
@@ -27,13 +27,27 @@ export function UserBalanceView({
 }: UserBalanceViewProps) {
   // Calculate balance for the target user
   const userBalance = useMemo(() => {
-    return calculateUserBalance(targetUser, expenses, payments);
+    const paidPayments = payments.map((payment) => ({
+      id: payment.id,
+      whoPaid: payment.from,
+      howMuchPaid: payment.amount,
+      toWho: payment.to,
+      groupId: payment.groupId,
+    }));
+    return calculateUserBalance(targetUser, expenses, paidPayments);
   }, [targetUser, expenses, payments]);
 
   // Calculate balances for all group members if needed
   const allBalances = useMemo(() => {
     if (!showGroupSummary) return [];
-    return calculateGroupBalances(groupMembers, expenses, payments);
+    const paidPayments = payments.map((payment) => ({
+      id: payment.id,
+      whoPaid: payment.from,
+      howMuchPaid: payment.amount,
+      toWho: payment.to,
+      groupId: payment.groupId,
+    }));
+    return calculateGroupBalances(groupMembers, expenses, paidPayments);
   }, [groupMembers, expenses, payments, showGroupSummary]);
 
   // Helper function to get display name

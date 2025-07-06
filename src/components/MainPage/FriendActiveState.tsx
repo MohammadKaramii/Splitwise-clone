@@ -1,207 +1,151 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { selectUserData } from "../../redux/reducers/userDataSlice";
+import { useMemo, useCallback } from "react";
+import { useAuth, useGroups, useExpenses } from "../../hooks";
+import { formatAmount, formatMonthDay } from "../../utils";
+import { calculatePairwiseBalance } from "../../utils/balanceCalculations";
+import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { setTotalAmount } from "../../redux/reducers/totalAmonutSlice";
-import {
-  calculatePairwiseBalance,
-  Expense,
-  getGroupPayments,
-} from "../../utils/balanceCalculations";
 
-interface TotalAmounts {
-  [key: string]: number;
-}
-function FriendActiveStateComponent() {
-  const dispatch = useDispatch();
-  const groups = useSelector((state: RootState) => state.groups.groups);
-  const user = useSelector(selectUserData);
-  const activeFriend = useMemo(() => {
-    return user.activeFriend;
-  }, [user.activeFriend]);
-  const [totalAmountFriend, setTotalAmountFriend] = useState<TotalAmounts>({});
-  const allZero = useMemo(() => {
-    return Object.values(totalAmountFriend).every((value) => value === 0);
-  }, [totalAmountFriend]);
+export const FriendActiveState = () => {
+  const { user } = useAuth();
+  const { groups } = useGroups();
+  const { expenses } = useExpenses();
+  const paids = useSelector((state: RootState) => state.payments.items);
 
-  const handleTime = useCallback(
-    (groupName: string) => {
-      const currentGroup = groups.find(
-        (group) => group.groupName === groupName
-      );
-      const timeUpdate = currentGroup?.lastUpdate || new Date().toISOString();
-      const month = new Date(timeUpdate)
-        .toLocaleString("en-US", { month: "long" })
-        .slice(0, 3);
-      const day = new Date(timeUpdate).getDate();
-      return { month, day };
-    },
-    [groups]
-  );
-  const paids = useSelector((state: RootState) => state.paids);
+  const activeFriend = user?.activeFriend;
 
-  const calculateTotalAmountFriend = useCallback(() => {
-    if (!groups || !activeFriend) {
-      return {};
-    }
+  const friendGroups = useMemo(() => {
+    if (!activeFriend) return [];
+    return groups.filter((group) => group.friends.includes(activeFriend));
+  }, [groups, activeFriend]);
 
-    const totalAmounts: TotalAmounts = {};
+  const groupBalances = useMemo(() => {
+    if (!activeFriend || !user?.name) return {};
 
-    groups.forEach((group) => {
-      // Convert group expenses to the universal format
-      const expenses: Expense[] =
-        group.howSpent
-          ?.filter(
-            (howSpent) =>
-              howSpent.sharedWith.includes(activeFriend) ||
-              howSpent.sharedWith.includes(user.name) ||
-              howSpent.whoPaid === activeFriend ||
-              howSpent.whoPaid === user.name
-          )
-          .map((howSpent) => ({
-            cost: howSpent.cost,
-            whoPaid: howSpent.whoPaid,
-            sharedWith: howSpent.sharedWith,
-          })) || [];
+    const balances: Record<string, number> = {};
 
-      // Filter payments for this group
-      const groupPayments = getGroupPayments(paids, group);
+    friendGroups.forEach((group) => {
+      // Get expenses for this group
+      const groupExpenses = expenses
+        .filter((expense) => expense.groupId === group.id)
+        .map((expense) => ({
+          cost: expense.cost,
+          whoPaid: expense.whoPaid,
+          sharedWith: expense.sharedWith as string[],
+        }));
 
-      // Calculate pairwise balance between user and friend for this group
+      // Get payments for this group
+      const groupPayments = paids
+        .filter((payment) => payment.groupId === group.id)
+        .map((payment) => ({
+          whoPaid: payment.whoPaid,
+          howMuchPaid: payment.howMuchPaid,
+          toWho: payment.toWho,
+          groupId: payment.groupId,
+        }));
+
+      // Calculate pairwise balance between current user and active friend
       const balance = calculatePairwiseBalance(
         user.name,
         activeFriend,
-        expenses,
+        groupExpenses,
         groupPayments
       );
 
-      totalAmounts[group.groupName] = Number(balance.toFixed(2));
+      balances[group.groupName] = balance;
     });
 
-    return totalAmounts;
-  }, [activeFriend, groups, paids, user.name]);
+    return balances;
+  }, [friendGroups, activeFriend, user?.name, expenses, paids]);
 
-  // Helper function to get display name (can be customized for different perspectives)
-  const getDisplayName = useCallback(
-    (userName: string, viewingUser: string) => {
-      return userName === viewingUser ? "You" : userName;
+  const allSettled = useMemo(() => {
+    return Object.values(groupBalances).every(
+      (balance) => Math.abs(balance) < 0.01
+    );
+  }, [groupBalances]);
+
+  const getDebtDescription = useCallback(
+    (balance: number, friendName: string) => {
+      if (Math.abs(balance) < 0.01) {
+        return `You and ${friendName} are settled up`;
+      }
+      return balance > 0 ? `You owe ${friendName}` : `${friendName} owes you`;
     },
     []
   );
 
-  // Helper function to get debt description universally
-  const getDebtDescription = useCallback(
-    (balance: number, userA: string, userB: string, viewingUser: string) => {
-      if (balance === 0) {
-        return `${getDisplayName(userA, viewingUser)} and ${getDisplayName(
-          userB,
-          viewingUser
-        )} are settled up`;
-      } else if (balance > 0) {
-        return `${getDisplayName(userA, viewingUser)} owe${
-          userA === viewingUser ? "" : "s"
-        } ${getDisplayName(userB, viewingUser)}`;
-      } else {
-        return `${getDisplayName(userB, viewingUser)} owe${
-          userB === viewingUser ? "" : "s"
-        } ${getDisplayName(userA, viewingUser)}`;
-      }
+  const handleTime = useCallback(
+    (groupName: string) => {
+      const group = groups.find((g) => g.groupName === groupName);
+      const timeUpdate = group?.lastUpdate || new Date().toISOString();
+      return formatMonthDay(timeUpdate);
     },
-    [getDisplayName]
+    [groups]
   );
 
-  useEffect(() => {
-    const totalAmountWithFriend = calculateTotalAmountFriend();
-    const totalAmount = Object.values(totalAmountWithFriend).reduce(
-      (acc, value) => acc + value,
-      0
-    );
-
-    setTotalAmountFriend(totalAmountWithFriend);
-    dispatch(setTotalAmount(totalAmount));
-  }, [activeFriend, calculateTotalAmountFriend, dispatch]);
+  if (!activeFriend) return null;
 
   return (
-    <>
-      {user.activeFriend && (
-        <div className="container">
-          {allZero === false ? (
-            <ul className="list-group mt-2 mx-2">
-              {groups
-                ?.filter((group) => group.friends.includes(activeFriend!))
-                .map((group) => (
-                  <li
-                    key={group.groupName}
-                    className="list-group-item message-container mt-1"
+    <div className="container">
+      {!allSettled ? (
+        <ul className="list-group mt-2 mx-2">
+          {friendGroups.map((group) => {
+            const balance = groupBalances[group.groupName] || 0;
+            const { month, day } = handleTime(group.groupName);
+
+            return (
+              <li
+                key={group.groupName}
+                className="list-group-item message-container mt-1"
+              >
+                <div className="message-date group-name-date">
+                  <div>
+                    <p>{month}</p>
+                    <p>{day}</p>
+                  </div>
+                  <div className="group-name-container">
+                    <img
+                      src="https://secure.splitwise.com/assets/fat_rabbit/group-icon.png"
+                      alt="group-icon"
+                    />
+                    <h6>{group.groupName}</h6>
+                  </div>
+                </div>
+                <div
+                  className={`${
+                    balance > 0
+                      ? "spent-status-lose"
+                      : balance < 0
+                      ? "spent-status-recive"
+                      : "price-lose"
+                  }`}
+                >
+                  <div
+                    className={`${
+                      balance > 0
+                        ? "you-lent"
+                        : balance < 0
+                        ? "lent-you"
+                        : "price-zero"
+                    }`}
                   >
-                    <div className="message-date group-name-date">
-                      <div>
-                        <p>{handleTime(group.groupName).month}</p>
-                        <p>{handleTime(group.groupName).day}</p>
-                      </div>
-                      <div className="group-name-container">
-                        <img
-                          src="https://secure.splitwise.com/assets/fat_rabbit/group-icon.png"
-                          alt="group-icon"
-                        ></img>
-                        <h6>{group.groupName}</h6>
-                      </div>
-                    </div>
-                    <div
-                      className={` ${
-                        totalAmountFriend[group.groupName] > 0
-                          ? "spent-status-lose"
-                          : totalAmountFriend[group.groupName] < 0
-                          ? "spent-status-recive"
-                          : "price-lose"
-                      }`}
-                    >
-                      <div
-                        className={`${
-                          totalAmountFriend[group.groupName] > 0
-                            ? "you-lent"
-                            : totalAmountFriend[group.groupName] < 0
-                            ? "lent-you"
-                            : "price-zero"
-                        }`}
-                      >
-                        <p>
-                          {activeFriend &&
-                            getDebtDescription(
-                              totalAmountFriend[group.groupName],
-                              user.name,
-                              activeFriend,
-                              user.name
-                            )}
-                        </p>
-                        <strong>
-                          ${Math.abs(totalAmountFriend[group.groupName])}
-                        </strong>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            <div className="settle-point no-expenses">
-              <img
-                src="https://assets.splitwise.com/assets/fat_rabbit/app/checkmark-circle-ae319506ad7196dc77eede0aed720a682363d68160a6309f6ebe9ce1983e45f0.png"
-                className="my-5 w-25"
-                alt="checkmark-icon"
-              />
-              <p>
-                {getDisplayName(user.name, user.name)} and{" "}
-                {activeFriend
-                  ? getDisplayName(activeFriend, user.name)
-                  : "your friend"}{" "}
-                are all settled up.
-              </p>
-            </div>
-          )}
+                    <p>{getDebtDescription(balance, activeFriend)}</p>
+                    <strong>${formatAmount(balance)}</strong>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="settle-point no-expenses">
+          <img
+            src="https://assets.splitwise.com/assets/fat_rabbit/app/checkmark-circle-ae319506ad7196dc77eede0aed720a682363d68160a6309f6ebe9ce1983e45f0.png"
+            className="my-5 w-25"
+            alt="checkmark-icon"
+          />
+          <p>You and {activeFriend} are all settled up.</p>
         </div>
       )}
-    </>
+    </div>
   );
-}
-
-export const FriendActiveState = memo(FriendActiveStateComponent);
+};

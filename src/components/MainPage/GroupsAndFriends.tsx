@@ -1,95 +1,71 @@
 import { useEffect, useState, useMemo, useCallback, memo } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import {
-  setSignInUserData,
-  selectUserData,
-} from "../../redux/reducers/userDataSlice";
+import { useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 import { supabase } from "../../../supabase";
-import { setGroupData } from "../../redux/reducers/groupSlice";
+import { setGroups } from "../../redux/slices/groupsSlice";
+import { setExpenses } from "../../redux/slices/expensesSlice";
+import { setPayments } from "../../redux/slices/paymentsSlice";
+import { setActiveGroup, setActiveFriend } from "../../redux/slices/authSlice";
 import toast from "react-hot-toast";
-import { setSpents } from "../../redux/reducers/spentsSlice";
-import { RootState } from "../../redux/store";
-import { setAddPayment } from "../../redux/reducers/paidSlice";
-import { Group } from "../../types";
+import { useAuth, useGroups, useExpenses } from "../../hooks";
 
 function GroupsAndFriendsComponent() {
-  const userData = useSelector(selectUserData);
+  const { user } = useAuth();
+  const { groups } = useGroups();
+  const { fetchExpenses } = useExpenses();
   const dispatch = useDispatch();
-  const user = useSelector((state: RootState) => state.userData.user);
-  const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedFriend, setSelectedFriend] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
   const fetchGroupsData = useCallback(async () => {
-    const groupsResponse = await supabase
+    if (!user?.id) return;
+
+    const { data: groupsData, error: groupsError } = await supabase
       .from("groups")
       .select("*")
-      .eq("userId", userData.id);
-    const { data: groupsData, error: groupsError } = groupsResponse;
+      .eq("userId", user.id);
 
     if (groupsError) {
       throw new Error(groupsError.message);
     }
 
-    setGroups(groupsData || []);
-    dispatch(setGroupData(groupsData));
-  }, [dispatch, userData.id]);
+    dispatch(setGroups(groupsData || []));
+  }, [dispatch, user?.id]);
 
   const fetchPaidsData = useCallback(async () => {
+    if (!user?.id) return;
+
     const paidsResponse = await supabase
       .from("myPaids")
       .select("*")
-      .eq("userId", userData.id);
+      .eq("userId", user.id);
     const { data: paids, error: paidsError } = paidsResponse;
 
     if (paidsError) {
       throw new Error(paidsError.message);
     }
 
-    dispatch(setAddPayment(paids[0]?.paids || []));
-  }, [dispatch, userData.id]);
-
-  const fetchSpentsData = useCallback(async () => {
-    const spentsResponse = await supabase
-      .from("groups")
-      .select("howSpent")
-      .eq("groupName", user.activeGroup)
-      .eq("userId", userData.id);
-    const { data: spents, error: spentsError } = spentsResponse;
-
-    if (spentsError) {
-      throw new Error(spentsError.message);
-    }
-
-    dispatch(setSpents(spents[0]?.howSpent || []));
-  }, [dispatch, user.activeGroup, userData.id]);
+    dispatch(setPayments(paids[0]?.paids || []));
+  }, [dispatch, user?.id]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         await fetchGroupsData();
         await fetchPaidsData();
-
-        if (user.activeGroup) {
-          await fetchSpentsData();
-        }
+        await fetchExpenses();
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
 
-    fetchData();
-  }, [
-    dispatch,
-    fetchGroupsData,
-    fetchPaidsData,
-    fetchSpentsData,
-    user.activeGroup,
-    userData.id,
-  ]);
+    if (user?.id) {
+      fetchData();
+    }
+  }, [dispatch, fetchGroupsData, fetchPaidsData, fetchExpenses, user?.id]);
+
   const uniqueFriends = useMemo(() => {
     const friends = groups.map((group) => group.friends);
     return Array.from(new Set(friends.flat()));
@@ -97,12 +73,8 @@ function GroupsAndFriendsComponent() {
 
   const handleClickOnGroup = useCallback(
     (groupName: string) => {
-      dispatch(
-        setSignInUserData({
-          activeGroup: groupName,
-          activeFriend: null,
-        })
-      );
+      dispatch(setActiveGroup(groupName));
+      dispatch(setActiveFriend(undefined));
       setSelectedGroup(groupName);
       setSelectedFriend("");
     },
@@ -111,12 +83,8 @@ function GroupsAndFriendsComponent() {
 
   const handleClickOnFriends = useCallback(
     (friend: string) => {
-      dispatch(
-        setSignInUserData({
-          activeFriend: friend,
-          activeGroup: null,
-        })
-      );
+      dispatch(setActiveFriend(friend));
+      dispatch(setActiveGroup(undefined));
       setSelectedFriend(friend);
       setSelectedGroup("");
     },
@@ -130,7 +98,7 @@ function GroupsAndFriendsComponent() {
 
   const confirmDeleteGroup = useCallback(async () => {
     try {
-      if (groupToDelete) {
+      if (groupToDelete && user?.id) {
         // Find the group being deleted to check if it's the active group
         const groupBeingDeleted = groups.find(
           (group) => group.id === groupToDelete
@@ -145,54 +113,66 @@ function GroupsAndFriendsComponent() {
           throw new Error(error.message);
         }
 
+        // Clean up expenses associated with this group
+        const { error: expensesError } = await supabase
+          .from("expenses")
+          .delete()
+          .eq("group_id", groupToDelete)
+          .eq("user_id", user.id);
+
+        if (expensesError) {
+          console.error("Error deleting expenses:", expensesError);
+          // Don't throw here as the group is already deleted, just log the error
+        }
+
         // Clean up payments associated with this group
         const paidsResponse = await supabase
           .from("myPaids")
           .select("*")
-          .eq("userId", userData.id);
+          .eq("userId", user.id);
 
         if (paidsResponse.data && paidsResponse.data.length > 0) {
           const currentPaids = paidsResponse.data[0]?.paids || [];
-          const cleanedPaids = currentPaids.filter((paid: any) => {
-            // Remove payments that belong to the deleted group
-            if (paid.groupId) {
-              return paid.groupId !== groupToDelete;
-            } else {
-              // For legacy payments without groupId, check groupName
-              return paid.groupName !== groupBeingDeleted?.groupName;
+          const cleanedPaids = currentPaids.filter(
+            (paid: { groupId?: string; groupName?: string }) => {
+              // Remove payments that belong to the deleted group
+              if (paid.groupId) {
+                return paid.groupId !== groupToDelete;
+              } else {
+                // For legacy payments without groupId, check groupName
+                return paid.groupName !== groupBeingDeleted?.groupName;
+              }
             }
-          });
+          );
 
           // Update the cleaned payments in the database
           await supabase
             .from("myPaids")
             .update({ paids: cleanedPaids })
-            .eq("userId", userData.id);
+            .eq("userId", user.id);
 
           // Update the Redux store with cleaned payments
-          dispatch(setAddPayment(cleanedPaids));
+          dispatch(setPayments(cleanedPaids));
         }
 
         const updatedGroups = groups.filter(
           (group) => group.id !== groupToDelete
         );
-        setGroups(updatedGroups);
-        dispatch(setGroupData(updatedGroups));
+        dispatch(setGroups(updatedGroups));
 
         // If the deleted group was the active group, clear the active group and related data
         if (
           groupBeingDeleted &&
-          user.activeGroup === groupBeingDeleted.groupName
+          user?.activeGroup === groupBeingDeleted.groupName
         ) {
-          dispatch(
-            setSignInUserData({
-              activeGroup: null,
-              activeFriend: null,
-            })
-          );
+          dispatch(setActiveGroup(undefined));
+          dispatch(setActiveFriend(undefined));
           // Clear the spents data since the active group is deleted
-          dispatch(setSpents([]));
+          dispatch(setExpenses([]));
         }
+
+        // Refresh expenses to remove deleted group's expenses from local state
+        await fetchExpenses();
 
         toast.success("Group and associated transactions deleted successfully");
       }
@@ -203,7 +183,14 @@ function GroupsAndFriendsComponent() {
       console.error("Error deleting group:", error);
       toast.error(`Error deleting group:, ${error}`);
     }
-  }, [groupToDelete, groups, dispatch, user.activeGroup, userData.id]);
+  }, [
+    groupToDelete,
+    groups,
+    dispatch,
+    user?.activeGroup,
+    user?.id,
+    fetchExpenses,
+  ]);
 
   const cancelDeleteGroup = useCallback(() => {
     setGroupToDelete(null);

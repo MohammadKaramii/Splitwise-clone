@@ -1,40 +1,41 @@
+import { useMemo, useEffect } from "react";
+import { useAuth, useGroups, useExpenses } from "../../hooks";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
-import { useMemo, useEffect, memo } from "react";
 import { ListGroupCard } from "./ListGroupCard";
 import { uid } from "uid";
-import { getGroupPayments } from "../../utils/balanceCalculations";
 
-function GroupActiveStateComponent() {
-  const groups = useSelector((state: RootState) => state.groups.groups);
-  const paids = useSelector((state: RootState) => state.paids);
-  const activeGroupName = useSelector(
-    (state: RootState) => state.userData.user.activeGroup
-  );
-  const activeGroup = useMemo(
-    () => groups.find((group) => group.groupName === activeGroupName),
-    [groups, activeGroupName]
-  );
-  const spents = useSelector((state: RootState) => state.spents);
+export const GroupActiveState = () => {
+  const { user } = useAuth();
+  const { getCurrentGroup } = useGroups();
+  const { fetchExpenses, getCurrentGroupExpenses } = useExpenses();
+  const payments = useSelector((state: RootState) => state.payments.items);
 
-  const totalAmount = useMemo(
-    () =>
-      activeGroup
-        ? activeGroup?.howSpent?.reduce((sum, item) => sum + item.cost, 0)
-        : 0,
-    [activeGroup]
-  );
+  const activeGroup = getCurrentGroup();
+  const expenses = getCurrentGroupExpenses();
 
   useEffect(() => {
-    if (!activeGroup || !activeGroup.howSpent) {
-      return;
+    if (user?.id) {
+      fetchExpenses();
     }
-  }, [activeGroup]);
+  }, [fetchExpenses, user?.id, user?.activeGroup]);
+
+  const totalAmount = useMemo(() => {
+    if (!activeGroup || !expenses) return 0;
+    return expenses.reduce((sum, expense) => sum + expense.cost, 0);
+  }, [activeGroup, expenses]);
+
+  const groupPayments = useMemo(() => {
+    if (!activeGroup || !payments) return [];
+    return payments.filter((payment) => payment.groupId === activeGroup.id);
+  }, [activeGroup, payments]);
+
+  if (!user?.activeGroup || !activeGroup) return null;
 
   return (
     <div className="container d-flex flex-column">
       <ul className="list-group mt-2 mx-2">
-        {spents?.map((data) => (
+        {expenses?.map((data) => (
           <li key={data.id} className="list-group-item message-container">
             <ListGroupCard
               data={data}
@@ -44,32 +45,24 @@ function GroupActiveStateComponent() {
           </li>
         ))}
       </ul>
-      <ul className="paid-list">
-        {paids ? (
-          <>
-            <h5>Transactions</h5>
-            {(() => {
-              if (!activeGroup) return [];
-              return getGroupPayments(paids, activeGroup);
-            })().map((member) => {
-              return paids ? (
-                <li className="paid-person-container" key={uid()}>
-                  <i className="fa-regular fa-circle-check mx-1"></i>
-                  <span>
-                    <strong> {member.whoPaid}</strong>
-                  </span>
-                  <span className=""> paid his share of </span>
-                  <strong>${member.howMuchPaid}</strong>
-                  <span className=""> to </span>
-                  <strong>{member.toWho}</strong>
-                </li>
-              ) : null;
-            })}
-          </>
-        ) : null}
-      </ul>
+
+      {groupPayments.length > 0 && (
+        <ul className="paid-list">
+          <h5>Transactions</h5>
+          {groupPayments.map((payment) => (
+            <li className="paid-person-container" key={payment.id || uid()}>
+              <i className="fa-regular fa-circle-check mx-1"></i>
+              <span>
+                <strong>{payment.whoPaid}</strong>
+              </span>
+              <span> paid his share of </span>
+              <strong>${payment.howMuchPaid}</strong>
+              <span> to </span>
+              <strong>{payment.toWho}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
-}
-
-export const GroupActiveState = memo(GroupActiveStateComponent);
+};

@@ -1,11 +1,25 @@
 import { configureStore } from "@reduxjs/toolkit";
-import rootReducer from "./reducers/index";
+import { authSlice } from "./slices/authSlice";
+import { groupsSlice } from "./slices/groupsSlice";
+import { expensesSlice } from "./slices/expensesSlice";
+import { paymentsSlice } from "./slices/paymentsSlice";
 
-const store = configureStore({
-  reducer: rootReducer,
-  devTools: process.env.NODE_ENV !== "production",
+export const store = configureStore({
+  reducer: {
+    auth: authSlice.reducer,
+    groups: groupsSlice.reducer,
+    expenses: expensesSlice.reducer,
+    payments: paymentsSlice.reducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST"],
+      },
+    }),
 });
 
-export default store;
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
 
-export type RootState = ReturnType<typeof store.getState>
+export default store;

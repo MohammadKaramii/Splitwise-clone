@@ -4,7 +4,8 @@ import {
   calculateOverallBalances,
   Expense,
 } from "../../utils/balanceCalculations";
-import { Paid } from "../../types/info-owes";
+import { Payment } from "../../types/core";
+import { useExpenses } from "../../hooks";
 
 interface FullGroup {
   id: string;
@@ -25,10 +26,10 @@ interface FullGroup {
 interface GroupBalanceDetailsProps {
   groupMembers: string[];
   expenses: Expense[];
-  payments: Paid[];
+  payments: Payment[];
   viewingUser: string;
   allGroups: FullGroup[]; // All groups for cross-group summary
-  allPayments: Paid[]; // All payments across groups
+  allPayments: Payment[]; // All payments across groups
   onSettleClick?: (userA: string, userB: string) => void;
   onSettleAllClick?: () => void;
 }
@@ -44,26 +45,59 @@ export function GroupBalanceDetails({
   onSettleAllClick,
 }: GroupBalanceDetailsProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const { expenses: allExpenses } = useExpenses();
 
   // Calculate pairwise balances for current group
   const pairwiseBalances = useMemo(() => {
-    return calculateAllPairwiseBalances(groupMembers, expenses, payments);
+    const paidPayments = payments.map((payment) => ({
+      whoPaid: payment.from,
+      howMuchPaid: payment.amount,
+      toWho: payment.to,
+      groupId: payment.groupId,
+    }));
+    return calculateAllPairwiseBalances(groupMembers, expenses, paidPayments);
   }, [groupMembers, expenses, payments]);
 
   // Calculate overall balance summary across ALL groups using centralized function
   const overallSummary = useMemo(() => {
     if (!allGroups || allGroups.length === 0) return null;
 
+    // Convert all expenses to the format expected by balance calculations
+    const allGroupsExpenses = allGroups.map((group) => {
+      // Get expenses for this group from the expenses table
+      const groupExpenses = allExpenses.filter(
+        (expense) => expense.groupId === group.id
+      );
+
+      return {
+        groupId: group.id,
+        expenses: groupExpenses.map((expense) => ({
+          cost: expense.cost,
+          whoPaid: expense.whoPaid,
+          sharedWith: expense.sharedWith as string[],
+        })),
+      };
+    });
+
+    const paidPayments = allPayments.map((payment) => ({
+      whoPaid: payment.from,
+      howMuchPaid: payment.amount,
+      toWho: payment.to,
+      groupId: payment.groupId,
+    }));
+
     const balances = calculateOverallBalances(
       allGroups,
-      allPayments,
+      allGroupsExpenses,
+      paidPayments,
       viewingUser
     );
+
     return balances.map((balance) => ({
       userId: balance.userId,
       totalBalance: balance.balance,
     }));
-  }, [allGroups, allPayments, viewingUser]);
+  }, [allGroups, allPayments, viewingUser, allExpenses]);
 
   // Helper functions
   const getDisplayName = (userName: string) => {
@@ -80,7 +114,6 @@ export function GroupBalanceDetails({
 
   return (
     <div className="group-balance-details">
-      {/* Current Group Balances */}
       <div className="current-group-balances">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 className="right-title">GROUP BALANCES</h5>
@@ -154,7 +187,6 @@ export function GroupBalanceDetails({
         </div>
       </div>
 
-      {/* Overall Balance Summary */}
       {overallSummary && (
         <div className="overall-summary mt-4">
           <div className="summary-header">

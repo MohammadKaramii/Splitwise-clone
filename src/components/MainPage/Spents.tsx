@@ -8,40 +8,52 @@ import toast from "react-hot-toast";
 import { memo, useMemo } from "react";
 import { Expense, getGroupPayments } from "../../utils/balanceCalculations";
 import { UserBalanceView } from "./UserBalanceView";
+import { useAuth, useGroups, useExpenses } from "../../hooks";
 
 function SpentsComponent() {
-  const user = useSelector((state: RootState) => state.userData.user);
-  const paids = useSelector((state: RootState) => state.paids);
-  const spents = useSelector((state: RootState) => state.spents);
-  const groups = useSelector((state: RootState) => state.groups.groups);
+  const { user } = useAuth();
+  const { groups } = useGroups();
+  const { getCurrentGroupExpenses } = useExpenses();
+  const paids = useSelector((state: RootState) => state.payments.items);
 
-  // Convert expenses to the format expected by balance calculations
+  const currentGroupExpenses = getCurrentGroupExpenses();
+
   const expenses: Expense[] = useMemo(() => {
-    if (!spents) return [];
-    return spents.map((spent) => ({
-      cost: spent.cost,
-      whoPaid: spent.whoPaid,
-      sharedWith: spent.sharedWith as string[],
+    if (!currentGroupExpenses) return [];
+    return currentGroupExpenses.map((expense) => ({
+      cost: expense.cost,
+      whoPaid: expense.whoPaid,
+      sharedWith: expense.sharedWith as string[],
     }));
-  }, [spents]);
+  }, [currentGroupExpenses]);
 
-  // Filter payments for current group
   const groupPayments = useMemo(() => {
     const activeGroup = groups.find(
-      (group) => group.groupName === user.activeGroup
+      (group) => group.groupName === user?.activeGroup
     );
     if (!activeGroup) return [];
 
-    return getGroupPayments(paids || [], activeGroup);
-  }, [paids, user.activeGroup, groups]);
+    const paidPayments = getGroupPayments(paids || [], activeGroup);
+    return paidPayments.map((payment) => ({
+      id: payment.id || `${payment.whoPaid}-${payment.toWho}-${Date.now()}`,
+      from: payment.whoPaid,
+      to: payment.toWho,
+      amount: payment.howMuchPaid,
+      groupId: payment.groupId || "",
+      createdAt: new Date(),
+    }));
+  }, [paids, user?.activeGroup, groups]);
 
-  // Get current group members
   const currentGroupMembers = useMemo(() => {
     const activeGroup = groups.find(
-      (group) => group.groupName === user.activeGroup
+      (group) => group.groupName === user?.activeGroup
     );
-    return activeGroup ? [user.name, ...activeGroup.friends] : [user.name];
-  }, [groups, user.activeGroup, user.name]);
+    return activeGroup
+      ? [user?.name || "", ...activeGroup.friends]
+      : [user?.name || ""];
+  }, [groups, user?.activeGroup, user?.name]);
+
+  if (!user) return null;
 
   return (
     <section className="middle-component-container">
@@ -108,7 +120,6 @@ function SpentsComponent() {
         </div>
       </div>
 
-      {/* Use the generalized UserBalanceView for current user */}
       {user.activeGroup && (
         <UserBalanceView
           targetUser={user.name}

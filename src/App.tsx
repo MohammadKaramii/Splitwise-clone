@@ -4,6 +4,11 @@ import {
   Routes,
   Navigate,
 } from "react-router-dom";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { supabase } from "../supabase";
+import { setUser, clearUser } from "./redux/slices/authSlice";
+import { useAuth } from "./hooks";
 import { HomePage } from "./components/HomePage/HomePage";
 import { NotFoundPage } from "./components/NotFound";
 import "./App.css";
@@ -14,76 +19,61 @@ import { UpdatePassword } from "./components/UpdatePassword/UpdatePassword";
 import { MainPage } from "./components/MainPage/MainPage";
 import { AddGroup } from "./components/MainPage/AddGroup";
 import { AddAnExpense } from "./components/MainPage/AddAnExpense";
-import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "./redux/store";
-import { memo, useEffect, useState } from "react";
-import { supabase } from "../supabase";
-import { setSignInUserData, signOutUser } from "./redux/reducers/userDataSlice";
 import { Loading } from "./components/Loading";
 
-function AppComponent() {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+};
+
+export const App = () => {
   const dispatch = useDispatch();
-  const isLoggedIn = useSelector(
-    (state: RootState) => state.userData.user.isSignIn
-  );
-  const [isLoading, setIsLoading] = useState(true);
+  const { isLoading } = useAuth();
 
   useEffect(() => {
-    // Check for existing session and set up auth state listener
-    const checkSession = async () => {
+    const initializeAuth = async () => {
       try {
         const {
           data: { session },
-          error,
         } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error("Error getting session:", error);
-        } else if (session) {
-          // User has valid session, restore user data
+        if (session?.user) {
           dispatch(
-            setSignInUserData({
-              name: session.user.user_metadata.name || session.user.email,
-              email: session.user.email,
-              isSignIn: true,
+            setUser({
               id: session.user.id,
+              name: session.user.user_metadata.name || session.user.email || "",
+              email: session.user.email || "",
+              isSignedIn: true,
             })
           );
         }
       } catch (error) {
         console.error("Session check error:", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    checkSession();
+    initializeAuth();
 
-    // Set up auth state change listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
         dispatch(
-          setSignInUserData({
-            name: session.user.user_metadata.name || session.user.email,
-            email: session.user.email,
-            isSignIn: true,
+          setUser({
             id: session.user.id,
+            name: session.user.user_metadata.name || session.user.email || "",
+            email: session.user.email || "",
+            isSignedIn: true,
           })
         );
       } else if (event === "SIGNED_OUT") {
-        dispatch(signOutUser());
+        dispatch(clearUser());
       }
     });
 
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [dispatch]);
 
-  // Show loading spinner while checking session
   if (isLoading) {
     return <Loading />;
   }
@@ -101,20 +91,30 @@ function AppComponent() {
         />
         <Route
           path="/mainpage"
-          element={isLoggedIn ? <MainPage /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <MainPage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/groups/new"
-          element={isLoggedIn ? <AddGroup /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <AddGroup />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/addexpense"
-          element={isLoggedIn ? <AddAnExpense /> : <Navigate to="/login" />}
+          element={
+            <ProtectedRoute>
+              <AddAnExpense />
+            </ProtectedRoute>
+          }
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
-}
-
-export const App = memo(AppComponent);
+};

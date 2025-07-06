@@ -1,13 +1,13 @@
-import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import "./HeaderUser.css";
-import { selectUserData } from "../../redux/reducers/userDataSlice";
 import { memo, useCallback } from "react";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
+import { useAuth } from "../../hooks";
 
 function HeaderUserComponent() {
-  const userData = useSelector(selectUserData);
+  const { user } = useAuth();
+
   const handleLogout = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -23,6 +23,8 @@ function HeaderUserComponent() {
       console.error("Logout error:", error);
     }
   }, []);
+
+  if (!user) return null;
 
   return (
     <nav className="navbar header">
@@ -46,7 +48,7 @@ function HeaderUserComponent() {
                 src="https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-ruby38-50px.png"
                 alt="User Avatar"
               />
-              <span>{userData.name}</span>
+              <span>{user.name}</span>
             </button>
             <ul className="dropdown-menu">
               <li>

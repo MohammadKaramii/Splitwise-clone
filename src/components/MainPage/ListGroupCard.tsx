@@ -1,15 +1,30 @@
 import React, { useState, useCallback, useMemo, memo } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../redux/store";
+import { useDispatch } from "react-redux";
 import { supabase } from "../../../supabase";
 import toast from "react-hot-toast";
-import { setSpents } from "../../redux/reducers/spentsSlice";
+import { updateExpense } from "../../redux/slices/expensesSlice";
 import { Loading } from "../Loading";
-import { updateGroup } from "../../redux/reducers/groupSlice";
-import { ListState, Spent } from "../../types";
+import { useAuth, useExpenses } from "../../hooks";
+
+interface ExpenseItem {
+  id: string;
+  message: string;
+  cost: number;
+  whoPaid: string;
+  sharedWith: string[];
+  createdAt: string;
+  groupId?: string;
+}
+
+interface ListState {
+  data: ExpenseItem;
+  members: string[];
+  totalAmount?: number;
+}
 
 function ListGroupCardComponent({ data, members }: ListState) {
-  const user = useSelector((state: RootState) => state.userData.user);
+  const { user } = useAuth();
+  const { deleteExpense } = useExpenses();
   const [listActive, setListActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [description, setDescription] = useState(data.message);
@@ -17,15 +32,10 @@ function ListGroupCardComponent({ data, members }: ListState) {
   const dispatch = useDispatch();
   const [updateMembers, setUpdateMembers] = useState(members);
   const [timeSpent, setTimeSpent] = useState(data.createdAt);
-  const spents = useSelector((state: RootState) => state.spents);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState("");
-  const groups = useSelector((state: RootState) => state.groups.groups);
 
-  const activeGroupName = useSelector(
-    (state: RootState) => state.userData.user.activeGroup
-  );
   const handleEdit = useCallback(() => {
     setEditMode((prevMode) => !prevMode);
   }, []);
@@ -33,7 +43,7 @@ function ListGroupCardComponent({ data, members }: ListState) {
   const handleMemberRemove = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>, member: string) => {
       event.preventDefault();
-      const updatedList = updateMembers.filter((m) => m !== member);
+      const updatedList = updateMembers.filter((m: string) => m !== member);
       if (updatedList.length === 0) {
         toast.error("At least one member must remain");
       } else {
@@ -66,71 +76,59 @@ function ListGroupCardComponent({ data, members }: ListState) {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setIsLoading(true);
+
+      if (!user?.id) {
+        toast.error("User not found");
+        setIsLoading(false);
+        return;
+      }
+
       if (description === "" || description?.trim() === "") {
         toast.error("Description name can't be blank");
+        setIsLoading(false);
         return;
       }
 
       if (cost <= 0) {
         toast.error("Cost can't be zero or negative");
+        setIsLoading(false);
         return;
       }
 
       if (updateMembers.length === 0) {
         toast.error("At least one member must remain");
+        setIsLoading(false);
         return;
       }
 
-      const newHowSpent = {
-        message: description,
-        cost: cost,
+      const updatedExpense: ExpenseItem = {
         id: data.id,
-        createdAt: data.createdAt,
+        message: description,
+        cost,
         whoPaid: data.whoPaid,
         sharedWith: updateMembers,
+        groupId: data.groupId,
+        createdAt: data.createdAt,
       };
 
       setTimeSpent(new Date().toISOString());
 
-      const editSpent = (prevSpents: Spent[]) => {
-        const updatedSpents = (prevSpents || []).map((spent: Spent) => {
-          if (spent.id === data.id) {
-            return newHowSpent;
-          }
-          return spent;
-        });
-
-        return updatedSpents;
-      };
-
-      const updatedGroups = groups.map((group) => {
-        if (group.groupName === activeGroupName) {
-          const updatedGroup = {
-            ...group,
-            howSpent: editSpent(spents),
-          };
-          return updatedGroup;
-        }
-        return group;
-      });
-      dispatch(updateGroup(updatedGroups));
-
       try {
         const { error } = await supabase
-          .from("groups")
+          .from("expenses")
           .update({
-            howSpent: editSpent(spents),
-            lastUpdate: new Date().toISOString(),
+            description: description,
+            amount: cost,
+            shared_with: updateMembers,
           })
-          .eq("groupName", user.activeGroup)
-          .eq("userId", user.id);
+          .eq("id", data.id);
 
         if (error) {
           toast.error("Update failed. Please try again.");
         } else {
-          dispatch(setSpents(editSpent(spents)));
-          setDescription(newHowSpent.message);
-          setCost(newHowSpent.cost);
+          dispatch(updateExpense(updatedExpense));
+          setDescription(updatedExpense.message);
+          setCost(updatedExpense.cost);
           toast.success("Updated successfully");
           setEditMode(false);
         }
@@ -148,49 +146,20 @@ function ListGroupCardComponent({ data, members }: ListState) {
       data.id,
       data.createdAt,
       data.whoPaid,
-      groups,
+      data.groupId,
       dispatch,
-      activeGroupName,
-      spents,
-      user.activeGroup,
-      user.id,
+      user?.id,
     ]
   );
+
   const handleDelete = useCallback(
     async (id: string) => {
       setIsLoading(true);
-      const deleteSpent = (prevSpents: Spent[]) => {
-        if (!prevSpents) {
-          return [];
-        } else {
-          const spentIndexToDelete = prevSpents.findIndex(
-            (spent) => spent.id === id
-          );
-          if (spentIndexToDelete !== -1) {
-            return prevSpents.filter(
-              (_spent, index) => index !== spentIndexToDelete
-            );
-          } else {
-            return prevSpents;
-          }
-        }
-      };
 
       try {
-        const { error } = await supabase
-          .from("groups")
-          .update({
-            howSpent: deleteSpent(spents),
-            lastUpdate: new Date().toISOString(),
-          })
-          .eq("groupName", activeGroupName)
-          .eq("userId", user.id);
-
-        if (error) {
-          toast.error("Delete failed. Please try again.");
-        } else {
-          dispatch(setSpents(deleteSpent(spents)));
-          toast.success("Deleted successfully");
+        const result = await deleteExpense(id);
+        if (result?.success) {
+          // Success message is handled by the deleteExpense function
         }
       } catch (error) {
         console.error("Delete Expense error:", error);
@@ -199,22 +168,24 @@ function ListGroupCardComponent({ data, members }: ListState) {
         setIsLoading(false);
       }
     },
-    [activeGroupName, dispatch, spents, user.id]
+    [deleteExpense]
   );
+
   const mem = useMemo(() => {
     // Filter out the current user's name from members
     const membersWithoutCurrentUser = members.filter(
-      (member) => member !== user.name
+      (member: string) => member !== user?.name
     );
 
     // Add "You" only if the current user is in the sharedWith array
-    if (data.sharedWith.includes(user.name)) {
+    if (data.sharedWith.includes(user?.name || "")) {
       return [...membersWithoutCurrentUser, "You"];
     }
 
     return membersWithoutCurrentUser;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.whoPaid, data.sharedWith, members, user.name]);
+  }, [data.whoPaid, data.sharedWith, members, user?.name]);
+
   const handleDeleteConfirmation = useCallback((id: string) => {
     setShowConfirmation(true);
     setDeleteItemId(id);
@@ -230,6 +201,8 @@ function ListGroupCardComponent({ data, members }: ListState) {
     setShowConfirmation(false);
     setDeleteItemId("");
   }, [handleDelete, deleteItemId]);
+
+  if (!user) return null;
 
   return (
     <div className="list-box">
@@ -345,7 +318,7 @@ function ListGroupCardComponent({ data, members }: ListState) {
                 <div className="form-group">
                   <label>Members:</label>
                   <ul className="list-group">
-                    {updateMembers.map((member) => (
+                    {updateMembers.map((member: string) => (
                       <li
                         key={member}
                         className="list-group-item d-flex justify-content-between align-items-center"
@@ -405,8 +378,8 @@ function ListGroupCardComponent({ data, members }: ListState) {
             <strong>{data.whoPaid === user.name ? "You" : data.whoPaid}</strong>{" "}
             paid <strong>${cost}</strong>
             {mem
-              .filter((member) => member !== data.whoPaid)
-              .map((member, index) => {
+              .filter((member: string) => member !== data.whoPaid)
+              .map((member: string, index: number) => {
                 const avatarLink = `https://s3.amazonaws.com/splitwise/uploads/user/default_avatars/avatar-grey${
                   index + 1
                 }-100px.png`;
